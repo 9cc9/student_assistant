@@ -122,10 +122,48 @@ class AssessmentService:
             
             # 如果评估完成，添加详细结果
             if assessment.get("status") == "completed":
+                # 构建详细的分数结构
+                score_breakdown = assessment.get("score_breakdown", {})
+                detailed_scores = assessment.get("detailed_scores")
+                
+                # 如果有详细评分，提取子维度分数
+                breakdown_data = {}
+                if isinstance(score_breakdown, dict):
+                    breakdown_data = score_breakdown
+                else:
+                    # 如果是对象，转换为字典
+                    breakdown_data = {
+                        "idea": getattr(score_breakdown, 'idea', 0),
+                        "ui": getattr(score_breakdown, 'ui', 0), 
+                        "code": getattr(score_breakdown, 'code', 0)
+                    }
+                
+                # 添加详细的子维度分数
+                if detailed_scores:
+                    if hasattr(detailed_scores, 'idea'):
+                        breakdown_data["idea_detail"] = {
+                            "innovation": getattr(detailed_scores.idea, 'innovation', breakdown_data.get('idea', 0)),
+                            "feasibility": getattr(detailed_scores.idea, 'feasibility', breakdown_data.get('idea', 0)),
+                            "learning_value": getattr(detailed_scores.idea, 'learning_value', breakdown_data.get('idea', 0))
+                        }
+                    if hasattr(detailed_scores, 'ui'):
+                        breakdown_data["ui_detail"] = {
+                            "compliance": getattr(detailed_scores.ui, 'compliance', breakdown_data.get('ui', 0)),
+                            "usability": getattr(detailed_scores.ui, 'usability', breakdown_data.get('ui', 0)),
+                            "information_arch": getattr(detailed_scores.ui, 'information_arch', breakdown_data.get('ui', 0))
+                        }
+                    if hasattr(detailed_scores, 'code'):
+                        breakdown_data["code_detail"] = {
+                            "correctness": getattr(detailed_scores.code, 'correctness', breakdown_data.get('code', 0)),
+                            "readability": getattr(detailed_scores.code, 'readability', breakdown_data.get('code', 0)),
+                            "architecture": getattr(detailed_scores.code, 'architecture', breakdown_data.get('code', 0)),
+                            "performance": getattr(detailed_scores.code, 'performance', breakdown_data.get('code', 0))
+                        }
+                
                 result.update({
                     "overall_score": assessment.get("overall_score"),
                     "assessment_level": assessment.get("assessment_level"),
-                    "breakdown": assessment.get("score_breakdown"),
+                    "breakdown": breakdown_data,
                     "diagnosis": assessment.get("diagnosis", []),
                     "resources": assessment.get("resources", []),
                     "exit_rules": assessment.get("exit_rules"),
@@ -143,24 +181,52 @@ class AssessmentService:
         
             # 如果评估完成，返回详细结果
             if assessment.status == AssessmentStatus.COMPLETED:
-                result.update({
-                    "overall_score": assessment.overall_score,
-                    "assessment_level": assessment.assessment_level.value if assessment.assessment_level else None,
-                    "breakdown": {
+                # 构建基本评分数据
+                breakdown_data = {}
+                if assessment.score_breakdown:
+                    breakdown_data = {
                         "idea": assessment.score_breakdown.idea,
                         "ui": assessment.score_breakdown.ui,
                         "code": assessment.score_breakdown.code
-                    } if assessment.score_breakdown else None,
+                    }
+                
+                # 添加详细的子维度分数
+                if hasattr(assessment, 'detailed_scores') and assessment.detailed_scores:
+                    if hasattr(assessment.detailed_scores, 'idea'):
+                        breakdown_data["idea_detail"] = {
+                            "innovation": assessment.detailed_scores.idea.innovation,
+                            "feasibility": assessment.detailed_scores.idea.feasibility,
+                            "learning_value": assessment.detailed_scores.idea.learning_value
+                        }
+                    if hasattr(assessment.detailed_scores, 'ui'):
+                        breakdown_data["ui_detail"] = {
+                            "compliance": assessment.detailed_scores.ui.compliance,
+                            "usability": assessment.detailed_scores.ui.usability,
+                            "information_arch": assessment.detailed_scores.ui.information_arch
+                        }
+                    if hasattr(assessment.detailed_scores, 'code'):
+                        breakdown_data["code_detail"] = {
+                            "correctness": assessment.detailed_scores.code.correctness,
+                            "readability": assessment.detailed_scores.code.readability,
+                            "architecture": assessment.detailed_scores.code.architecture,
+                            "performance": assessment.detailed_scores.code.performance
+                        }
+                
+                result.update({
+                    "overall_score": assessment.overall_score,
+                    "assessment_level": assessment.assessment_level.value if assessment.assessment_level else None,
+                    "breakdown": breakdown_data,
                     "diagnosis": [
                         {
-                            "dim": d.dimension,
+                            "dimension": d.dimension,
                             "issue": d.issue,
-                            "fix": d.fix
+                            "fix": d.fix,
+                            "priority": getattr(d, 'priority', 1)
                         } for d in assessment.diagnosis
                     ],
                     "resources": assessment.resources,
                     "exit_rules": {
-                        "pass": assessment.exit_rules.pass_status,
+                        "pass_status": assessment.exit_rules.pass_status,
                         "path_update": assessment.exit_rules.path_update,
                         "remedy": assessment.exit_rules.remedy
                     } if assessment.exit_rules else None,
@@ -275,6 +341,7 @@ class AssessmentService:
             assessment.status = AssessmentStatus.COMPLETED
             assessment.overall_score = result["overall_score"]
             assessment.score_breakdown = result["score_breakdown"]
+            assessment.detailed_scores = result.get("detailed_scores")  # 保存详细评分
             assessment.diagnosis = result["diagnoses"]
             assessment.resources = result["resources"]
             assessment.exit_rules = result["exit_rules"]

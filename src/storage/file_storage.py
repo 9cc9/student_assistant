@@ -40,14 +40,39 @@ class FileStorage:
             # 转换datetime为字符串
             save_data = {}
             for assessment_id, assessment in self._assessments.items():
-                save_data[assessment_id] = self._serialize_assessment(assessment)
+                try:
+                    serialized = self._serialize_assessment(assessment)
+                    # 验证序列化后的数据可以转为JSON
+                    json.dumps(serialized)  # 测试序列化
+                    save_data[assessment_id] = serialized
+                except Exception as e:
+                    logger.error(f"📂 序列化评估记录失败: {assessment_id}, {str(e)}")
+                    # 跳过有问题的记录，不影响其他记录
+                    continue
             
-            with open(self.assessments_file, 'w', encoding='utf-8') as f:
-                json.dump(save_data, f, ensure_ascii=False, indent=2)
+            # 验证整个数据结构可以转为JSON
+            json_str = json.dumps(save_data, ensure_ascii=False, indent=2)
+            
+            # 原子写入：先写入临时文件，再重命名
+            temp_file = self.assessments_file.with_suffix('.tmp')
+            with open(temp_file, 'w', encoding='utf-8') as f:
+                f.write(json_str)
+                f.flush()  # 确保数据写入磁盘
+                os.fsync(f.fileno())  # 强制同步到磁盘
+            
+            # 原子重命名
+            temp_file.replace(self.assessments_file)
             
             logger.info(f"📂 保存了 {len(save_data)} 条评估记录")
         except Exception as e:
             logger.error(f"📂 保存评估记录失败: {str(e)}")
+            # 如果有临时文件，清理它
+            temp_file = self.assessments_file.with_suffix('.tmp')
+            if temp_file.exists():
+                try:
+                    temp_file.unlink()
+                except:
+                    pass
     
     def _serialize_assessment(self, assessment) -> Dict[str, Any]:
         """序列化评估记录"""
@@ -80,6 +105,26 @@ class FileStorage:
             
             if 'score_breakdown' in data and data['score_breakdown'] and hasattr(data['score_breakdown'], '__dict__'):
                 data['score_breakdown'] = data['score_breakdown'].__dict__.copy()
+            
+            # 处理详细评分字段
+            if 'detailed_scores' in data and data['detailed_scores']:
+                if hasattr(data['detailed_scores'], '__dict__'):
+                    detailed_scores = data['detailed_scores'].__dict__.copy()
+                    # 递归处理详细评分中的嵌套对象
+                    for key, value in detailed_scores.items():
+                        if value and hasattr(value, '__dict__'):
+                            detailed_scores[key] = value.__dict__.copy()
+                    data['detailed_scores'] = detailed_scores
+                elif isinstance(data['detailed_scores'], dict):
+                    # 如果已经是字典，检查是否有嵌套对象需要序列化
+                    detailed_scores = data['detailed_scores'].copy()
+                    for key, value in detailed_scores.items():
+                        if value and hasattr(value, '__dict__'):
+                            detailed_scores[key] = value.__dict__.copy()
+                    data['detailed_scores'] = detailed_scores
+                else:
+                    # 如果是其他类型，设置为None
+                    data['detailed_scores'] = None
             
             if 'exit_rules' in data and data['exit_rules'] and hasattr(data['exit_rules'], '__dict__'):
                 data['exit_rules'] = data['exit_rules'].__dict__.copy()

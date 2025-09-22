@@ -74,6 +74,7 @@ class Assessment:
     
     # 评估结果
     score_breakdown: Optional[ScoreBreakdown] = None
+    detailed_scores: Optional['DetailedScores'] = None  # 详细的子维度评分
     overall_score: Optional[float] = None
     assessment_level: Optional[AssessmentLevel] = None
     diagnosis: List[Diagnosis] = None
