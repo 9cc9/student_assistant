@@ -13,7 +13,7 @@ from pathlib import Path
 
 # 导入配置和路由
 from .config import get_settings
-from .api import assessment_router, system_router, upload_router
+from .api import assessment_router, system_router, upload_router, learning_path_router
 
 
 # 应用生命周期管理
@@ -52,7 +52,8 @@ app = FastAPI(
 
     - **多维度评估**: 支持Idea创新性、UI可用性、代码质量的综合评估
     - **智能诊断**: 提供详细的问题诊断和改进建议
-    - **学习路径**: 基于评估结果生成个性化学习路径
+    - **个性化学习路径**: 基于入学诊断和学习进展的智能路径推荐
+    - **固定节点+可变通道**: A/B/C三档任务包的个性化机制
     - **实时反馈**: 快速的评估反馈和结果查询
     - **批量处理**: 支持批量评估和对比分析
 
@@ -132,6 +133,7 @@ async def general_exception_handler(request, exc):
 app.include_router(assessment_router)
 app.include_router(system_router)
 app.include_router(upload_router)
+app.include_router(learning_path_router)
 
 # 静态文件服务
 static_dir = Path(__file__).parent.parent / "static"
@@ -159,8 +161,10 @@ async def root():
             "timestamp": datetime.now().isoformat(),
             "features": [
                 "多维度智能评估",
+                "个性化学习路径推荐",
+                "固定节点+可变通道机制",
                 "实时反馈和诊断",
-                "个性化学习建议",
+                "AI助教集成",
                 "文件上传支持",
                 "Git仓库集成"
             ]
@@ -177,6 +181,7 @@ async def api_info() -> Dict[str, Any]:
         "environment": settings.environment,
         "endpoints": {
             "assessment": "/api/assessment",
+            "learning_path": "/api/learning-path", 
             "system": "/api/system"
         },
         "documentation": {

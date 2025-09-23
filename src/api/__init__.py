@@ -16,6 +16,16 @@ from .upload_api import (
     get_project_analysis,
     list_uploaded_projects
 )
+from .learning_path_api import (
+    submit_diagnostic_assessment,
+    get_student_progress,
+    request_path_recommendation,
+    update_node_progress,
+    get_learning_path_info,
+    get_available_paths,
+    get_path_statistics,
+    learning_path_health_check
+)
 
 # 创建评估路由器
 assessment_router = APIRouter(prefix="/api", tags=["Assessment"])
@@ -39,8 +49,20 @@ upload_router.post("/git")(submit_git_project)
 upload_router.get("/projects")(list_uploaded_projects)
 upload_router.get("/analysis")(get_project_analysis)
 
+# 创建学习路径路由器
+learning_path_router = APIRouter(prefix="/api/learning-path", tags=["Learning Path"])
+learning_path_router.post("/diagnostic")(submit_diagnostic_assessment)
+learning_path_router.get("/progress/{student_id}")(get_student_progress)
+learning_path_router.get("/recommendation/{student_id}")(request_path_recommendation)
+learning_path_router.post("/progress/update")(update_node_progress)
+learning_path_router.get("/path/info")(get_learning_path_info)
+learning_path_router.get("/paths")(get_available_paths)
+learning_path_router.get("/statistics")(get_path_statistics)
+learning_path_router.get("/health")(learning_path_health_check)
+
 __all__ = [
     "assessment_router",
-    "system_router",
-    "upload_router"
+    "system_router", 
+    "upload_router",
+    "learning_path_router"
 ]

@@ -16,6 +16,8 @@ from ..evaluators.ui_analyzer import UIAnalyzer
 from ..evaluators.code_reviewer import CodeReviewer
 from ..evaluators.score_aggregator import ScoreAggregator
 from ..config.settings import assessment_config
+from .learning_path_service import LearningPathService
+from ..models.learning_path import NodeStatus
 
 
 logger = logging.getLogger(__name__)
@@ -31,6 +33,7 @@ class AssessmentService:
             self.ui_analyzer = UIAnalyzer()
             self.code_reviewer = CodeReviewer()
             self.score_aggregator = ScoreAggregator()
+            self.learning_path_service = LearningPathService()
             
             self._initialized = True
             
@@ -42,6 +45,10 @@ class AssessmentService:
         elif not hasattr(self, 'assessments'):
             self.assessments = self.storage.list_assessments()
             logger.info(f"📋 AssessmentService 评估记录已重新加载，共 {len(self.assessments)} 条")
+        
+        # 确保学习路径服务可用
+        if not hasattr(self, 'learning_path_service'):
+            self.learning_path_service = LearningPathService()
     
     async def submit_assessment(self, student_id: str, deliverables: Dict[str, Any]) -> str:
         """
@@ -354,6 +361,9 @@ class AssessmentService:
             
             logger.info(f"📋 🎉 评估完成并保存: {assessment_id}, 总分: {result['overall_score']}")
             
+            # 🆕 集成学习路径推荐系统
+            await self._update_learning_path(assessment_id, assessment)
+            
         except Exception as e:
             # 处理评估异常
             logger.error(f"📋 ❌ 评估执行失败: {assessment_id}, 错误: {str(e)}")
@@ -370,6 +380,130 @@ class AssessmentService:
                     self.storage.save_assessment(assessment_id, assessment)
             except Exception as save_error:
                 logger.error(f"📋 ❌ 保存错误状态失败: {str(save_error)}")
+    
+    async def _update_learning_path(self, assessment_id: str, assessment):
+        """
+        🆕 更新学习路径进度
+        
+        当评估完成后，自动调用学习路径服务来：
+        1. 更新学生的节点进度
+        2. 根据评估结果推荐下一步路径
+        """
+        try:
+            student_id = assessment.student_id
+            
+            # 从评估结果中推断当前学习的节点
+            current_node_id = self._infer_current_node(assessment.deliverables)
+            
+            # 构建评估结果数据
+            assessment_result = {
+                "overall_score": assessment.overall_score,
+                "breakdown": {
+                    "idea": assessment.score_breakdown.idea,
+                    "ui": assessment.score_breakdown.ui,
+                    "code": assessment.score_breakdown.code
+                },
+                "diagnosis": [
+                    {
+                        "dimension": d.dimension,
+                        "issue": d.issue,
+                        "fix": d.fix
+                    } for d in assessment.diagnosis
+                ],
+                "exit_rules": {
+                    "pass_status": assessment.exit_rules.pass_status,
+                    "path_update": assessment.exit_rules.path_update,
+                    "remedy": assessment.exit_rules.remedy
+                } if assessment.exit_rules else None
+            }
+            
+            # 确定节点状态
+            if assessment.overall_score >= 60:  # 通过门槛
+                node_status = NodeStatus.COMPLETED
+            else:
+                node_status = NodeStatus.FAILED
+            
+            logger.info(f"📚🤖 开始更新学习路径: {student_id} -> {current_node_id} -> {node_status.value}")
+            
+            # 更新学生进度
+            await self.learning_path_service.update_student_progress(
+                student_id=student_id,
+                node_id=current_node_id,
+                status=node_status,
+                assessment_result=assessment_result
+            )
+            
+            # 如果节点完成，生成路径推荐
+            if node_status == NodeStatus.COMPLETED:
+                recommendation = await self.learning_path_service.recommend_next_step(
+                    student_id=student_id,
+                    assessment_result=assessment_result
+                )
+                logger.info(f"📚🤖 路径推荐已生成: {student_id} -> {recommendation.recommended_channel.value}通道 -> {recommendation.next_node_id}")
+            
+            logger.info(f"📚🤖 ✅ 学习路径更新成功: {assessment_id}")
+            
+        except Exception as e:
+            # 学习路径更新失败不应该影响评估结果
+            logger.warning(f"📚🤖 ⚠️ 学习路径更新失败，但评估已完成: {assessment_id}, 错误: {str(e)}")
+    
+    def _infer_current_node(self, deliverables) -> str:
+        """
+        🆕 根据提交物推断当前学习节点
+        
+        基于学生提交的作业内容，智能推断当前正在学习的课程节点
+        """
+        
+        # 分析提交物内容特征
+        idea_text = deliverables.idea_text.lower() if deliverables.idea_text else ""
+        code_snippets = " ".join(deliverables.code_snippets).lower() if deliverables.code_snippets else ""
+        has_ui_images = len(deliverables.ui_images) > 0 if deliverables.ui_images else False
+        
+        # 节点关键词映射
+        node_keywords = {
+            "api_calling": ["api", "调用", "接口", "请求", "response", "http", "rest"],
+            "model_deployment": ["模型", "部署", "docker", "ollama", "部署", "推理", "服务"],
+            "no_code_ai": ["dify", "零代码", "无代码", "flow", "工作流", "配置"],
+            "rag_system": ["rag", "检索", "向量", "faiss", "embedding", "知识库", "文档"],
+            "ui_design": ["ui", "界面", "设计", "用户体验", "原型", "交互"],
+            "frontend_dev": ["前端", "react", "vue", "html", "css", "javascript", "组件"],
+            "backend_dev": ["后端", "api", "数据库", "服务器", "fastapi", "flask", "接口"]
+        }
+        
+        # 计算每个节点的匹配得分
+        node_scores = {}
+        for node_id, keywords in node_keywords.items():
+            score = 0
+            for keyword in keywords:
+                if keyword in idea_text:
+                    score += 2  # idea中的关键词权重更高
+                if keyword in code_snippets:
+                    score += 3  # 代码中的关键词权重最高
+            
+            # UI相关的特殊处理
+            if node_id == "ui_design" and has_ui_images:
+                score += 5
+            
+            node_scores[node_id] = score
+        
+        # 找到得分最高的节点
+        if node_scores:
+            best_node = max(node_scores, key=node_scores.get)
+            max_score = node_scores[best_node]
+            
+            # 如果得分过低，使用默认推断逻辑
+            if max_score < 2:
+                return self._default_node_inference()
+            
+            logger.info(f"📚🤖 节点推断: {best_node} (得分: {max_score})")
+            return best_node
+        
+        return self._default_node_inference()
+    
+    def _default_node_inference(self) -> str:
+        """默认节点推断逻辑"""
+        # 简单策略：返回最常见的节点或者按顺序推断
+        return "api_calling"  # 默认为第一个节点
 
     def _prepare_evaluation_data(self, assessment: Assessment) -> Dict[str, Any]:
         """准备评估数据"""
