@@ -26,6 +26,11 @@ from .learning_path_api import (
     get_path_statistics,
     learning_path_health_check
 )
+from .diagnostic_api import (
+    get_diagnostic_test,
+    submit_diagnostic_test,
+    get_diagnostic_statistics
+)
 
 # 创建评估路由器
 assessment_router = APIRouter(prefix="/api", tags=["Assessment"])
@@ -60,9 +65,16 @@ learning_path_router.get("/paths")(get_available_paths)
 learning_path_router.get("/statistics")(get_path_statistics)
 learning_path_router.get("/health")(learning_path_health_check)
 
+# 创建诊断测试路由器
+diagnostic_router = APIRouter(prefix="/api/diagnostic", tags=["Diagnostic"])
+diagnostic_router.get("/test")(get_diagnostic_test)
+diagnostic_router.post("/submit")(submit_diagnostic_test)
+diagnostic_router.get("/statistics")(get_diagnostic_statistics)
+
 __all__ = [
     "assessment_router",
     "system_router", 
     "upload_router",
-    "learning_path_router"
+    "learning_path_router",
+    "diagnostic_router"
 ]

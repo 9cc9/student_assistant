@@ -1,0 +1,84 @@
+{
+  "student_id": "demo_student_001",
+  "diagnostic_results": {
+    "concept_score": 58,
+    "coding_score": 86,
+    "tool_familiarity": 31,
+    "skill_scores": {
+      "Python": 80,
+      "JavaScript": 40,
+      "Git": 60,
+      "命令行/Terminal": 20,
+      "HTML/CSS": 60,
+      "React/Vue": 40,
+      "Node.js": 20,
+      "REST API": 20,
+      "OpenAI API": 20,
+      "LangChain": 20,
+      "向量数据库": 20,
+      "Jupyter Notebook": 20,
+      "Docker": 20,
+      "云服务": 20,
+      "Linux": 20,
+      "数据库": 20
+    },
+    "learning_style_preference": "examples_first",
+    "time_budget_hours_per_week": 8,
+    "interests": [
+      "RAG",
+      "Agent"
+    ],
+    "goals": [
+      "完成RAG应用",
+      "掌握全栈开发"
+    ],
+    "challenges": "debugging",
+    "overall_readiness": "合格",
+    "recommendations": [
+      "建议先复习基础技术概念，特别是API、HTTP等网络基础知识",
+      "建议先熟悉开发环境和基础工具，如Git、命令行等",
+      "推荐使用IDE调试功能，多练习错误定位技巧",
+      "可以重点关注RAG系统构建，这与你的兴趣匹配"
+    ],
+    "evaluated_at": "2025-09-23T11:13:07.843750"
+  },
+  "student_profile": {
+    "level": "L1",
+    "weak_skills": [
+      "JavaScript",
+      "命令行/Terminal",
+      "React/Vue",
+      "Node.js",
+      "REST API",
+      "OpenAI API",
+      "LangChain",
+      "向量数据库",
+      "Jupyter Notebook",
+      "Docker",
+      "云服务",
+      "Linux",
+      "数据库"
+    ],
+    "interests": [
+      "RAG",
+      "Agent"
+    ],
+    "learning_style": "examples_first",
+    "time_budget": 8
+  },
+  "learning_progress": {
+    "completed_nodes": [
+      "api_calling"
+    ],
+    "current_node": "model_deployment",
+    "current_channel": "B",
+    "completion_rate": 14.285714285714285
+  },
+  "final_recommendation": {
+    "decision": "keep",
+    "channel": "B",
+    "next_node": "no_code_ai",
+    "reasoning": "当前学习进展良好，建议保持现有通道继续学习，稳步推进课程进度。"
+  },
+  "demo_time": "2025-09-23T11:13:07.866269"
+}

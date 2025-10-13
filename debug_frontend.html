@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>前端调试页面</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>前端功能调试</h1>
+    
+    <div id="test-results">
+        <h2>正在检测...</h2>
+    </div>
+
+    <script>
+        // 测试各种功能
+        function runTests() {
+            const results = document.getElementById('test-results');
+            let html = '<h2>测试结果:</h2>';
+            
+            // 检测Vue.js
+            try {
+                if (typeof Vue !== 'undefined') {
+                    html += '<div class="status success">✅ Vue.js 加载成功</div>';
+                } else {
+                    html += '<div class="status error">❌ Vue.js 未加载</div>';
+                }
+            } catch(e) {
+                html += '<div class="status error">❌ Vue.js 检测错误: ' + e.message + '</div>';
+            }
+            
+            // 检测API访问
+            fetch('/api/assessment/history?limit=1')
+                .then(response => {
+                    if (response.ok) {
+                        html += '<div class="status success">✅ 历史记录API正常</div>';
+                        return response.json();
+                    } else {
+                        throw new Error('API返回错误: ' + response.status);
+                    }
+                })
+                .then(data => {
+                    if (data && data.assessments) {
+                        html += '<div class="status success">✅ 历史数据格式正确，找到 ' + data.assessments.length + ' 条记录</div>';
+                    }
+                })
+                .catch(error => {
+                    html += '<div class="status error">❌ API访问失败: ' + error.message + '</div>';
+                })
+                .finally(() => {
+                    results.innerHTML = html;
+                });
+                
+            results.innerHTML = html;
+        }
+        
+        // 等待页面加载完成
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runTests);
+        } else {
+            runTests();
+        }
+    </script>
+    
+    <!-- 加载Vue.js -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script>
+        setTimeout(() => {
+            runTests(); // 重新测试Vue加载
+        }, 2000);
+    </script>
+</body>
+</html>

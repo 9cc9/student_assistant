@@ -161,193 +161,21 @@
                     </div>
 
                     <!-- 诊断测试进行中 -->
-                    <div v-else-if="diagnosticStarted && !diagnosticCompleted && diagnosticTest" class="space-y-6">
-                        <!-- 进度条 -->
-                        <div class="mb-6">
-                            <div class="flex justify-between items-center mb-2">
-                                <span class="text-sm font-semibold text-gray-700">
-                                    测试进度: {{ currentSection + 1 }} / {{ diagnosticTest.sections.length }}
-                                </span>
-                                <span class="text-sm text-gray-600">
-                                    {{ diagnosticTest.sections[currentSection].title }}
-                                </span>
-                            </div>
-                            <div class="w-full bg-gray-200 rounded-full h-3">
-                                <div class="progress-bar h-3 rounded-full transition-all duration-300" 
-                                     :style="{width: ((currentSection + 1) / diagnosticTest.sections.length * 100) + '%'}"></div>
-                            </div>
+                    <div v-else-if="diagnosticStarted && !diagnosticCompleted" class="space-y-6">
+                        <div class="text-center mb-6">
+                            <h3 class="text-2xl font-bold text-gray-800 mb-2">正在进行诊断测试</h3>
+                            <p class="text-gray-600">请根据提示完成测试题目</p>
                         </div>
                         
-                        <!-- 当前模块标题 -->
-                        <div class="bg-gradient-to-r from-purple-50 to-blue-50 p-6 rounded-lg">
-                            <h3 class="text-2xl font-bold text-gray-800 mb-2">
-                                {{ diagnosticTest.sections[currentSection].title }}
-                            </h3>
-                            <p class="text-gray-600">{{ diagnosticTest.sections[currentSection].description }}</p>
-                            <p v-if="diagnosticTest.sections[currentSection].time_limit" class="text-sm text-gray-500 mt-2">
-                                <i class="fas fa-clock mr-1"></i>
-                                建议用时: {{ Math.floor(diagnosticTest.sections[currentSection].time_limit / 60) }}分钟
-                            </p>
-                        </div>
-
-                        <!-- 测试内容区域 -->
-                        <div class="bg-white p-6 rounded-lg border-2 border-gray-200">
-                            <!-- 概念测试 -->
-                            <div v-if="diagnosticTest.sections[currentSection].id === 'concepts'">
-                                <div v-for="(q, index) in diagnosticTest.sections[currentSection].questions" :key="q.id" 
-                                     class="mb-8 pb-8 border-b border-gray-200 last:border-b-0">
-                                    <h4 class="font-semibold text-gray-800 mb-3">
-                                        {{ index + 1 }}. {{ q.question }}
-                                    </h4>
-                                    
-                                    <!-- 选择题 -->
-                                    <div v-if="q.type === 'multiple_choice'" class="space-y-2">
-                                        <label v-for="opt in q.options" :key="opt" 
-                                               class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition">
-                                            <input type="radio" 
-                                                   :name="q.id" 
-                                                   :value="opt.charAt(0)"
-                                                   v-model="studentAnswers.concepts[q.id]"
-                                                   class="mr-3 w-4 h-4 text-purple-600" />
-                                            <span>{{ opt }}</span>
-                                        </label>
-                                    </div>
-                                    
-                                    <!-- 简答题 -->
-                                    <textarea v-else-if="q.type === 'short_answer'"
-                                              v-model="studentAnswers.concepts[q.id]"
-                                              placeholder="请输入你的答案..."
-                                              rows="4"
-                                              class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"></textarea>
-                                </div>
-                            </div>
-
-                            <!-- 编程测试 -->
-                            <div v-if="diagnosticTest.sections[currentSection].id === 'coding'">
-                                <div v-for="(q, index) in diagnosticTest.sections[currentSection].questions" :key="q.id"
-                                     class="mb-8 pb-8 border-b border-gray-200 last:border-b-0">
-                                    <h4 class="font-semibold text-gray-800 mb-3">
-                                        {{ index + 1 }}. {{ q.question }}
-                                    </h4>
-                                    
-                                    <!-- 代码题 -->
-                                    <div v-if="q.type === 'coding'">
-                                        <div v-if="q.template" class="bg-gray-100 p-3 rounded mb-2">
-                                            <code class="text-sm text-gray-700">{{ q.template }}</code>
-                                        </div>
-                                        <textarea v-model="studentAnswers.coding[q.id]"
-                                                  :placeholder="q.template || '请输入你的代码...'"
-                                                  rows="10"
-                                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg font-mono text-sm focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                                  style="font-family: 'Courier New', monospace;"></textarea>
-                                    </div>
-                                    
-                                    <!-- 代码分析题 -->
-                                    <div v-else-if="q.type === 'code_analysis'">
-                                        <div class="bg-gray-900 text-green-400 p-4 rounded mb-3">
-                                            <pre class="text-sm"><code>{{ q.code }}</code></pre>
-                                        </div>
-                                        <textarea v-model="studentAnswers.coding[q.id]"
-                                                  placeholder="请解释这段代码的输出结果，并说明原因..."
-                                                  rows="4"
-                                                  class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"></textarea>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 工具调查 -->
-                            <div v-if="diagnosticTest.sections[currentSection].id === 'tools'">
-                                <p class="text-gray-600 mb-6">请为每项工具评分（1-5星，1星=不熟悉，5星=非常熟悉）</p>
-                                <!-- 遍历转换后的questions数组 -->
-                                <div v-for="q in diagnosticTest.sections[currentSection].questions" :key="q.id"
-                                     class="mb-6">
-                                    <h4 class="font-semibold text-gray-800 mb-3 pb-2 border-b">
-                                        <i class="fas fa-folder mr-2 text-blue-500"></i>{{ q.category.name }}
-                                    </h4>
-                                    <div v-for="tool in q.category.tools" :key="tool.name"
-                                         class="flex items-center justify-between py-3 border-b border-gray-100">
-                                        <div class="flex-1">
-                                            <div class="font-medium text-gray-700">{{ tool.name }}</div>
-                                            <div class="text-sm text-gray-500">{{ tool.description }}</div>
-                                        </div>
-                                        <div class="flex items-center space-x-1">
-                                            <button v-for="star in 5" :key="star"
-                                                    @click="studentAnswers.tools[tool.name] = star"
-                                                    type="button"
-                                                    class="text-2xl transition-all duration-200 hover:scale-110"
-                                                    :class="studentAnswers.tools[tool.name] >= star ? 'text-yellow-400' : 'text-gray-300'">
-                                                ★
-                                            </button>
-                                            <span v-if="studentAnswers.tools[tool.name]" 
-                                                  class="ml-2 text-sm text-gray-600">
-                                                {{ studentAnswers.tools[tool.name] }}星
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 学习偏好 -->
-                            <div v-if="diagnosticTest.sections[currentSection].id === 'preferences'">
-                                <div v-for="(q, index) in diagnosticTest.sections[currentSection].questions" :key="q.id"
-                                     class="mb-8 pb-8 border-b border-gray-200 last:border-b-0">
-                                    <h4 class="font-semibold text-gray-800 mb-3">
-                                        {{ index + 1 }}. {{ q.question }}
-                                    </h4>
-                                    
-                                    <!-- 单选题 -->
-                                    <div v-if="q.type === 'single_choice'" class="space-y-2">
-                                        <label v-for="opt in q.options" :key="opt.value"
-                                               class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition">
-                                            <input type="radio" 
-                                                   :name="q.id"
-                                                   :value="opt.value"
-                                                   v-model="studentAnswers.preferences[q.id]"
-                                                   class="mr-3 w-4 h-4 text-purple-600" />
-                                            <span>{{ opt.label }}</span>
-                                        </label>
-                                    </div>
-                                    
-                                    <!-- 多选题 -->
-                                    <div v-else-if="q.type === 'multiple_choice'" class="space-y-2">
-                                        <label v-for="opt in q.options" :key="opt.value"
-                                               class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer transition">
-                                            <input type="checkbox" 
-                                                   :value="opt.value"
-                                                   v-model="studentAnswers.preferences[q.id]"
-                                                   class="mr-3 w-4 h-4 text-purple-600" />
-                                            <span>{{ opt.label }}</span>
-                                        </label>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 导航按钮 -->
-                        <div class="flex justify-between items-center pt-6">
-                            <button v-if="currentSection > 0"
-                                    @click="previousSection"
-                                    class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition">
-                                <i class="fas fa-arrow-left mr-2"></i>上一步
-                            </button>
-                            <div v-else></div>
-                            
-                            <button v-if="currentSection < diagnosticTest.sections.length - 1"
-                                    @click="nextSection"
-                                    :disabled="loading"
-                                    class="bg-purple-500 text-white px-6 py-3 rounded-lg hover:bg-purple-600 transition disabled:opacity-50">
-                                下一步<i class="fas fa-arrow-right ml-2"></i>
-                            </button>
-                            <button v-else
-                                    @click="nextSection"
-                                    :disabled="loading"
-                                    class="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition disabled:opacity-50">
-                                <span v-if="loading">
-                                    <i class="fas fa-spinner fa-spin mr-2"></i>提交中...
-                                </span>
-                                <span v-else>
-                                    <i class="fas fa-check mr-2"></i>提交测试
-                                </span>
+                        <!-- 这里可以展示实际的测试题目 -->
+                        <div class="bg-gray-100 p-8 rounded-lg text-center">
+                            <i class="fas fa-clipboard-list text-6xl text-gray-400 mb-4"></i>
+                            <p class="text-xl text-gray-600 mb-4">模拟诊断测试界面</p>
+                            <p class="text-gray-500 mb-6">实际实现中，这里将显示具体的测试题目</p>
+                            <button 
+                                @click="completeDiagnostic"
+                                class="bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-600 transition">
+                                <i class="fas fa-check mr-2"></i>完成测试 (演示)
                             </button>
                         </div>
                     </div>
@@ -358,34 +186,6 @@
                             <i class="fas fa-check-circle text-6xl text-green-500 mb-4"></i>
                             <h3 class="text-2xl font-bold text-gray-800 mb-2">诊断测试完成！</h3>
                             <p class="text-gray-600">已为您生成个性化学习画像和路径推荐</p>
-                        </div>
-
-                        <!-- 评估结果展示 -->
-                        <div v-if="evaluationResult" class="bg-gradient-to-r from-green-50 to-teal-50 p-6 rounded-lg">
-                            <h4 class="text-xl font-semibold text-gray-800 mb-4">
-                                <i class="fas fa-chart-line mr-2 text-green-500"></i>您的测试结果
-                            </h4>
-                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                                <div class="bg-white p-4 rounded-lg text-center">
-                                    <div class="text-3xl font-bold text-blue-600">{{ evaluationResult.concept_score }}</div>
-                                    <div class="text-gray-600 text-sm mt-1">概念理解</div>
-                                </div>
-                                <div class="bg-white p-4 rounded-lg text-center">
-                                    <div class="text-3xl font-bold text-purple-600">{{ evaluationResult.coding_score }}</div>
-                                    <div class="text-gray-600 text-sm mt-1">编程能力</div>
-                                </div>
-                                <div class="bg-white p-4 rounded-lg text-center">
-                                    <div class="text-3xl font-bold text-orange-600">{{ evaluationResult.tool_familiarity }}</div>
-                                    <div class="text-gray-600 text-sm mt-1">工具熟悉度</div>
-                                </div>
-                                <div class="bg-white p-4 rounded-lg text-center">
-                                    <div class="text-2xl font-bold text-green-600">{{ evaluationResult.overall_readiness }}</div>
-                                    <div class="text-gray-600 text-sm mt-1">整体准备度</div>
-                                </div>
-                            </div>
-                            <p class="text-gray-600 mt-4 text-sm">
-                                {{ evaluationResult.overall_readiness_description }}
-                            </p>
                         </div>
 
                         <!-- 学习画像展示 -->
@@ -431,48 +231,32 @@
                         </div>
 
                         <!-- 推荐路径 -->
-                        <div class="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-lg">
+                        <div class="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg">
                             <h4 class="text-xl font-semibold text-gray-800 mb-4">
-                                <i class="fas fa-route mr-2 text-indigo-500"></i>推荐学习路径
+                                <i class="fas fa-route mr-2 text-green-500"></i>推荐学习路径
                             </h4>
-                            <div class="mb-4 p-4 bg-white rounded-lg">
-                                <div class="flex items-center justify-between mb-2">
-                                    <span class="font-semibold text-gray-700">推荐通道：</span>
-                                    <span :class="getChannelClass(pathRecommendation.recommended_channel)"
-                                          class="text-lg font-bold">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <div class="mb-3">
+                                        <span class="font-medium text-gray-700">起始通道：</span>
+                                        <span :class="getChannelClass(pathRecommendation.recommended_channel)">
                                             {{ pathRecommendation.recommended_channel }}通道
                                         </span>
                                     </div>
-                                <p class="text-gray-600 text-sm">{{ pathRecommendation.channel_description }}</p>
+                                    <div class="mb-3">
+                                        <span class="font-medium text-gray-700">预计完成时间：</span>
+                                        <span class="text-blue-600 font-medium">{{ pathRecommendation.estimated_timeline.total_weeks }}周</span>
                                     </div>
-                            
-                            <div class="mb-4">
-                                <h5 class="font-semibold text-gray-700 mb-2">
-                                    <i class="fas fa-lightbulb mr-1 text-yellow-500"></i>个性化学习建议：
-                                </h5>
-                                <ul class="space-y-2">
-                                    <li v-for="(suggestion, index) in pathRecommendation.learning_suggestions" 
-                                        :key="index"
-                                        class="flex items-start text-gray-700 text-sm">
-                                        <i class="fas fa-check-circle text-green-500 mr-2 mt-0.5"></i>
-                                        <span>{{ suggestion }}</span>
-                                    </li>
-                                </ul>
                                 </div>
-                            
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="bg-white p-3 rounded">
+                                <div>
+                                    <div class="mb-3">
+                                        <span class="font-medium text-gray-700">学习策略：</span>
+                                        <span class="text-purple-600">{{ pathRecommendation.learning_strategy.style_adaptation.approach }}</span>
+                                    </div>
+                                    <div class="mb-3">
                                         <span class="font-medium text-gray-700">重点关注：</span>
-                                    <div class="mt-1">
-                                        <span v-for="area in pathRecommendation.focus_areas" :key="area"
-                                              class="inline-block bg-orange-100 text-orange-800 px-2 py-1 rounded text-xs mr-1 mb-1">
-                                            {{ area }}
-                                        </span>
+                                        <span class="text-orange-600">{{ pathRecommendation.learning_strategy.interest_priorities.focus_suggestion }}</span>
                                     </div>
-                                </div>
-                                <div class="bg-white p-3 rounded">
-                                    <span class="font-medium text-gray-700">学习进度：</span>
-                                    <p class="text-sm text-gray-600 mt-1">{{ pathRecommendation.estimated_weekly_progress }}</p>
                                 </div>
                             </div>
                         </div>
@@ -916,23 +700,6 @@
                     studentProfile: null,
                     pathRecommendation: null,
                     
-                    // 真实诊断测试数据（从JSON加载）
-                    diagnosticTest: null,           // 测试题目数据
-                    diagnosticQuestionsLoaded: false, // 题目加载状态
-                    currentSection: 0,              // 当前测试模块(0-3)
-                    studentAnswers: {               // 学生答案收集
-                        concepts: {},
-                        coding: {},
-                        tools: {},
-                        preferences: {
-                            interests: [],
-                            goals: []
-                        }
-                    },
-                    testStartTime: null,            // 测试开始时间
-                    sectionStartTime: null,         // 当前模块开始时间
-                    evaluationResult: null,         // 评估结果
-                    
                     // 学习路径相关数据
                     studentProgress: null,
                     currentTask: null,
@@ -968,164 +735,45 @@
             },
             methods: {
                 // ================ 诊断测试方法 ================
-                
-                // 预加载诊断测试题目（从JSON文件）
-                async loadDiagnosticQuestions() {
-                    try {
-                        const response = await fetch('/static/diagnostic_questions.json')
-                        if (!response.ok) {
-                            throw new Error('Failed to load diagnostic questions')
-                        }
-                        const data = await response.json()
-                        
-                        // 转换为API格式
-                        this.diagnosticTest = {
-                            test_info: data.test_info,
-                            sections: this.transformDiagnosticSections(data.sections)
-                        }
-                        this.diagnosticQuestionsLoaded = true
-                        console.log('✅ 成功从JSON加载诊断测试题目')
-                    } catch (error) {
-                        console.error('❌ 加载诊断题目失败:', error)
-                        this.diagnosticQuestionsLoaded = false
-                        // 不阻塞系统，用户点击开始测试时再尝试从API加载
-                    }
-                },
-                
-                transformDiagnosticSections(sectionsData) {
-                    return sectionsData.map(section => {
-                        // 处理工具熟悉度模块
-                        if (section.id === 'tools' && section.survey) {
-                            return {
-                                id: section.id,
-                                title: section.title,
-                                description: section.description,
-                                time_limit: section.time_limit,
-                                questions: section.survey.map((surveyItem, index) => ({
-                                    id: `tools_${surveyItem.category}`,
-                                    question: `请评估您对以下${surveyItem.category}工具的熟悉程度`,
-                                    type: 'rating',
-                                    category: {
-                                        name: surveyItem.category,
-                                        tools: surveyItem.tools
-                                    }
-                                }))
-                            }
-                        }
-                        // 其他模块直接使用questions字段
-                        return {
-                            id: section.id,
-                            title: section.title,
-                            description: section.description || '',
-                            time_limit: section.time_limit,
-                            questions: section.questions || []
-                        }
-                    })
-                },
-                
                 async startDiagnostic() {
                     if (!this.diagnosticForm.studentId.trim()) {
                         alert('请输入学生ID')
                         return
                     }
                     
-                    // 如果题目已从JSON加载，直接使用
-                    if (this.diagnosticQuestionsLoaded && this.diagnosticTest) {
-                        this.diagnosticStarted = true
-                        this.testStartTime = new Date()
-                        this.currentSection = 0
-                        this.sectionStartTime = new Date()
-                        console.log('使用预加载的诊断测试题目')
-                        return
-                    }
-                    
-                    // 否则，尝试从API加载（备用方案）
                     this.loading = true
                     try {
-                        const response = await fetch('/api/diagnostic/test')
-                        if (response.ok) {
-                            this.diagnosticTest = await response.json()
+                        // 模拟开始诊断测试
                         this.diagnosticStarted = true
-                            this.testStartTime = new Date()
-                            this.currentSection = 0
-                            this.sectionStartTime = new Date()
-                            console.log('从API加载诊断测试题目成功')
-                        } else {
-                            throw new Error('获取测试题目失败')
-                        }
+                        // 实际实现中，这里会调用诊断API
+                        // const response = await fetch('/api/learning-path/diagnostic', {...})
                     } catch (error) {
-                        alert('启动诊断测试失败: ' + error.message + '\n请确保题目文件已正确配置')
+                        alert('启动诊断测试失败: ' + error.message)
                         this.diagnosticStarted = false
                     } finally {
                         this.loading = false
                     }
                 },
                 
-                // 进入下一个测试模块
-                nextSection() {
-                    if (this.currentSection < this.diagnosticTest.sections.length - 1) {
-                        this.currentSection++
-                        this.sectionStartTime = new Date()
-                        window.scrollTo({ top: 0, behavior: 'smooth' })
-                    } else {
-                        // 最后一个模块，准备提交
-                        if (confirm('确认提交诊断测试？提交后将生成您的学习画像。')) {
-                            this.submitDiagnostic()
-                        }
-                    }
-                },
-                
-                // 返回上一个测试模块
-                previousSection() {
-                    if (this.currentSection > 0) {
-                        this.currentSection--
-                        this.sectionStartTime = new Date()
-                        window.scrollTo({ top: 0, behavior: 'smooth' })
-                    }
-                },
-                
-                // 提交诊断测试
-                async submitDiagnostic() {
+                async completeDiagnostic() {
                     this.loading = true
                     try {
-                        // 调用真实API提交测试答案
-                        const response = await fetch('/api/diagnostic/submit', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
+                        // 模拟诊断完成，提交结果
+                        const mockDiagnosticResults = {
+                            concept_score: 75,
+                            coding_score: 68,
+                            tool_familiarity: 80,
+                            skill_scores: {
+                                "Python基础": 70,
+                                "Git": 45,
+                                "HTTP协议": 65
                             },
-                            body: JSON.stringify({
-                                student_id: this.diagnosticForm.studentId,
-                                responses: this.studentAnswers
-                            })
-                        })
-                        
-                        if (response.ok) {
-                            const result = await response.json()
-                            this.evaluationResult = result.evaluation_results
-                            this.studentProfile = result.student_profile
-                            this.pathRecommendation = result.recommendations
-                            this.diagnosticCompleted = true
-                            this.diagnosticStarted = false
-                            
-                            console.log('诊断评估完成:', result)
-                            
-                            // 自动创建学习路径
-                            await this.createLearningPathFromDiagnostic(result)
-                        } else {
-                            const error = await response.json()
-                            throw new Error(error.detail || '提交失败')
+                            interests: ["RAG", "Agent"],
+                            learning_style_preference: "examples_first",
+                            time_budget_hours_per_week: 8,
+                            goals: ["完成RAG应用", "掌握全栈开发"]
                         }
-                    } catch (error) {
-                        alert('提交诊断测试失败: ' + error.message)
-                    } finally {
-                        this.loading = false
-                    }
-                },
-                
-                // 从诊断结果创建学习路径
-                async createLearningPathFromDiagnostic(diagnosticResult) {
-                    try {
+                        
                         const response = await fetch('/api/learning-path/diagnostic', {
                             method: 'POST',
                             headers: {
@@ -1133,26 +781,23 @@
                             },
                             body: JSON.stringify({
                                 student_id: this.diagnosticForm.studentId,
-                                diagnostic_results: {
-                                    concept_score: diagnosticResult.evaluation_results.concept_score,
-                                    coding_score: diagnosticResult.evaluation_results.coding_score,
-                                    tool_familiarity: diagnosticResult.evaluation_results.tool_familiarity,
-                                    interests: diagnosticResult.student_profile.interests,
-                                    learning_style_preference: diagnosticResult.student_profile.learning_style,
-                                    time_budget_hours_per_week: diagnosticResult.student_profile.time_budget_hours_per_week,
-                                    goals: diagnosticResult.student_profile.goals
-                                }
+                                diagnostic_results: mockDiagnosticResults
                             })
                         })
                         
                         if (response.ok) {
-                            const pathData = await response.json()
-                            console.log('学习路径创建成功:', pathData)
-                            // 刷新学习路径显示
-                            await this.loadStudentProgress()
+                            const result = await response.json()
+                            this.studentProfile = result.student_profile
+                            this.pathRecommendation = result.recommendations
+                            this.diagnosticCompleted = true
+                            this.diagnosticStarted = false
+                        } else {
+                            throw new Error('诊断评估失败')
                         }
                     } catch (error) {
-                        console.error('创建学习路径失败:', error)
+                        alert('完成诊断失败: ' + error.message)
+                    } finally {
+                        this.loading = false
                     }
                 },
                 
@@ -1162,20 +807,6 @@
                     this.studentProfile = null
                     this.pathRecommendation = null
                     this.diagnosticForm.studentId = ''
-                    this.diagnosticTest = null
-                    this.currentSection = 0
-                    this.studentAnswers = {
-                        concepts: {},
-                        coding: {},
-                        tools: {},
-                        preferences: {
-                            interests: [],
-                            goals: []
-                        }
-                    }
-                    this.testStartTime = null
-                    this.sectionStartTime = null
-                    this.evaluationResult = null
                 },
                 
                 // ================ 学习路径方法 ================
@@ -1477,11 +1108,9 @@
                     }
                 }
             },
-            async mounted() {
+            mounted() {
                 // 页面加载时的初始化逻辑
                 console.log('AI助教评估与个性化学习路径系统已加载')
-                // 预加载诊断测试题目
-                await this.loadDiagnosticQuestions()
             }
         }).mount('#app')
     </script>

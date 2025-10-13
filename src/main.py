@@ -13,7 +13,7 @@ from pathlib import Path
 
 # 导入配置和路由
 from .config import get_settings
-from .api import assessment_router, system_router, upload_router, learning_path_router
+from .api import assessment_router, system_router, upload_router, learning_path_router, diagnostic_router
 
 
 # 应用生命周期管理
@@ -134,6 +134,7 @@ app.include_router(assessment_router)
 app.include_router(system_router)
 app.include_router(upload_router)
 app.include_router(learning_path_router)
+app.include_router(diagnostic_router)
 
 # 静态文件服务
 static_dir = Path(__file__).parent.parent / "static"

@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>集成测试页面</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="app" class="container mx-auto px-6 py-8">
+        <div class="max-w-4xl mx-auto">
+            <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">
+                <i class="fas fa-flask mr-3 text-blue-500"></i>个性化学习路径系统集成测试
+            </h1>
+
+            <!-- 测试控制面板 -->
+            <div class="bg-white rounded-lg shadow-lg p-6 mb-8">
+                <h2 class="text-xl font-semibold mb-4">测试控制面板</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">学生ID</label>
+                        <input 
+                            v-model="studentId"
+                            type="text" 
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            placeholder="输入学生ID">
+                    </div>
+                    <div class="flex items-end">
+                        <button 
+                            @click="testDiagnostic"
+                            :disabled="loading"
+                            class="bg-purple-500 text-white px-4 py-2 rounded-md hover:bg-purple-600 disabled:opacity-50">
+                            <i class="fas fa-brain mr-2"></i>测试诊断
+                        </button>
+                    </div>
+                    <div class="flex items-end">
+                        <button 
+                            @click="testProgress"
+                            :disabled="loading"
+                            class="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 disabled:opacity-50">
+                            <i class="fas fa-chart-line mr-2"></i>测试进度查询
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex justify-center space-x-4">
+                    <button 
+                        @click="testAssessment"
+                        :disabled="loading"
+                        class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 disabled:opacity-50">
+                        <i class="fas fa-robot mr-2"></i>测试AI评估
+                    </button>
+                    <button 
+                        @click="testPathRecommendation"
+                        :disabled="loading"
+                        class="bg-orange-500 text-white px-4 py-2 rounded-md hover:bg-orange-600 disabled:opacity-50">
+                        <i class="fas fa-route mr-2"></i>测试路径推荐
+                    </button>
+                </div>
+            </div>
+
+            <!-- 状态显示 -->
+            <div v-if="loading" class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-8">
+                <div class="flex items-center">
+                    <i class="fas fa-spinner fa-spin text-blue-500 mr-3"></i>
+                    <span class="text-blue-700">{{ loadingMessage }}</span>
+                </div>
+            </div>
+
+            <!-- 错误显示 -->
+            <div v-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+                    <span class="text-red-700">{{ error }}</span>
+                </div>
+                <button @click="error = null" class="mt-2 text-red-600 hover:text-red-800 text-sm">
+                    <i class="fas fa-times mr-1"></i>关闭
+                </button>
+            </div>
+
+            <!-- 测试结果显示 -->
+            <div v-if="testResult" class="bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <i class="fas fa-check-circle text-green-500 mr-2"></i>测试结果
+                </h3>
+                
+                <div class="bg-gray-100 rounded-lg p-4 overflow-x-auto">
+                    <pre class="text-sm text-gray-800">{{ JSON.stringify(testResult, null, 2) }}</pre>
+                </div>
+
+                <!-- 特殊结果展示 -->
+                <div v-if="testResult.student_profile" class="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-blue-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-blue-800 mb-2">学生画像</h4>
+                        <p><strong>学习水平:</strong> {{ testResult.student_profile.level }}</p>
+                        <p><strong>学习风格:</strong> {{ testResult.student_profile.learning_style }}</p>
+                        <p><strong>时间预算:</strong> {{ testResult.student_profile.time_budget }}小时/周</p>
+                        <p><strong>兴趣领域:</strong> {{ testResult.student_profile.interests.join(', ') }}</p>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-lg">
+                        <h4 class="font-semibold text-green-800 mb-2">学习路径</h4>
+                        <p><strong>当前节点:</strong> {{ testResult.initial_path.current_node }}</p>
+                        <p><strong>推荐通道:</strong> {{ testResult.initial_path.recommended_channel }}</p>
+                        <p><strong>预计完成:</strong> {{ testResult.initial_path.estimated_timeline.total_weeks }}周</p>
+                    </div>
+                </div>
+
+                <div v-if="testResult.current_task" class="mt-6 bg-yellow-50 p-4 rounded-lg">
+                    <h4 class="font-semibold text-yellow-800 mb-2">当前任务</h4>
+                    <p><strong>节点:</strong> {{ testResult.current_task.node_name }}</p>
+                    <p><strong>通道:</strong> {{ testResult.current_task.channel }}</p>
+                    <p><strong>任务描述:</strong> {{ testResult.current_task.task_description }}</p>
+                    <p><strong>预计时长:</strong> {{ testResult.current_task.estimated_hours }}小时</p>
+                    <p><strong>难度等级:</strong> {{ testResult.current_task.difficulty_level }}/10</p>
+                </div>
+
+                <button 
+                    @click="testResult = null"
+                    class="mt-4 bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600">
+                    <i class="fas fa-times mr-2"></i>清除结果
+                </button>
+            </div>
+
+            <!-- API状态检查 -->
+            <div class="mt-8 bg-white rounded-lg shadow-lg p-6">
+                <h3 class="text-lg font-semibold mb-4">系统状态检查</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="space-y-2">
+                        <div class="flex items-center">
+                            <div :class="systemStatus.assessment ? 'bg-green-500' : 'bg-red-500'" 
+                                 class="w-3 h-3 rounded-full mr-2"></div>
+                            <span>AI助教评估系统</span>
+                        </div>
+                        <div class="flex items-center">
+                            <div :class="systemStatus.learningPath ? 'bg-green-500' : 'bg-red-500'" 
+                                 class="w-3 h-3 rounded-full mr-2"></div>
+                            <span>学习路径系统</span>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <button 
+                            @click="checkSystemStatus"
+                            :disabled="loading"
+                            class="bg-indigo-500 text-white px-4 py-2 rounded-md hover:bg-indigo-600 disabled:opacity-50">
+                            <i class="fas fa-sync mr-2"></i>检查状态
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    studentId: '2024190906018',
+                    loading: false,
+                    loadingMessage: '',
+                    error: null,
+                    testResult: null,
+                    systemStatus: {
+                        assessment: false,
+                        learningPath: false
+                    }
+                }
+            },
+            methods: {
+                async testDiagnostic() {
+                    this.loading = true
+                    this.loadingMessage = '测试入学诊断API...'
+                    this.error = null
+                    
+                    try {
+                        const mockDiagnosticData = {
+                            student_id: this.studentId,
+                            diagnostic_results: {
+                                concept_score: Math.floor(Math.random() * 40) + 60,
+                                coding_score: Math.floor(Math.random() * 40) + 60,
+                                tool_familiarity: Math.floor(Math.random() * 40) + 60,
+                                skill_scores: {
+                                    "Python基础": Math.floor(Math.random() * 50) + 50,
+                                    "Git": Math.floor(Math.random() * 50) + 30
+                                },
+                                interests: ["RAG", "Agent"],
+                                learning_style_preference: "examples_first",
+                                time_budget_hours_per_week: 8,
+                                goals: ["完成RAG应用", "掌握全栈开发"]
+                            }
+                        }
+                        
+                        const response = await fetch('/api/learning-path/diagnostic', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(mockDiagnosticData)
+                        })
+                        
+                        if (response.ok) {
+                            this.testResult = await response.json()
+                        } else {
+                            throw new Error(`API错误: ${response.status}`)
+                        }
+                    } catch (error) {
+                        this.error = `诊断测试失败: ${error.message}`
+                    } finally {
+                        this.loading = false
+                    }
+                },
+                
+                async testProgress() {
+                    this.loading = true
+                    this.loadingMessage = '测试学习进度查询API...'
+                    this.error = null
+                    
+                    try {
+                        const response = await fetch(`/api/learning-path/progress/${this.studentId}`)
+                        
+                        if (response.ok) {
+                            this.testResult = await response.json()
+                        } else {
+                            throw new Error(`API错误: ${response.status}`)
+                        }
+                    } catch (error) {
+                        this.error = `进度查询失败: ${error.message}`
+                    } finally {
+                        this.loading = false
+                    }
+                },
+                
+                async testAssessment() {
+                    this.loading = true
+                    this.loadingMessage = '测试AI助教评估API...'
+                    this.error = null
+                    
+                    try {
+                        const mockAssessmentData = {
+                            student_id: this.studentId,
+                            deliverables: {
+                                idea_text: "这是一个基于RAG的智能问答系统，可以帮助用户快速获取准确信息。",
+                                ui_images: [],
+                                code_repo: "https://github.com/example/rag-demo",
+                                code_snippets: ["print('Hello RAG World!')"]
+                            }
+                        }
+                        
+                        const response = await fetch('/api/assessment/submit', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(mockAssessmentData)
+                        })
+                        
+                        if (response.ok) {
+                            const result = await response.json()
+                            
+                            // 等待评估完成
+                            setTimeout(async () => {
+                                const statusResponse = await fetch(`/api/assessment/${result.assessment_id}`)
+                                if (statusResponse.ok) {
+                                    this.testResult = await statusResponse.json()
+                                }
+                            }, 2000)
+                        } else {
+                            throw new Error(`API错误: ${response.status}`)
+                        }
+                    } catch (error) {
+                        this.error = `AI评估失败: ${error.message}`
+                    } finally {
+                        this.loading = false
+                    }
+                },
+                
+                async testPathRecommendation() {
+                    this.loading = true
+                    this.loadingMessage = '测试路径推荐API...'
+                    this.error = null
+                    
+                    try {
+                        const response = await fetch(`/api/learning-path/recommendation/${this.studentId}`)
+                        
+                        if (response.ok) {
+                            this.testResult = await response.json()
+                        } else {
+                            throw new Error(`API错误: ${response.status}`)
+                        }
+                    } catch (error) {
+                        this.error = `路径推荐失败: ${error.message}`
+                    } finally {
+                        this.loading = false
+                    }
+                },
+                
+                async checkSystemStatus() {
+                    this.loading = true
+                    this.loadingMessage = '检查系统状态...'
+                    
+                    try {
+                        // 检查AI助教系统
+                        const assessmentResponse = await fetch('/api/system/status')
+                        this.systemStatus.assessment = assessmentResponse.ok
+                        
+                        // 检查学习路径系统
+                        const pathResponse = await fetch('/api/learning-path/health')
+                        this.systemStatus.learningPath = pathResponse.ok
+                    } catch (error) {
+                        this.error = `状态检查失败: ${error.message}`
+                    } finally {
+                        this.loading = false
+                    }
+                }
+            },
+            mounted() {
+                // 页面加载时自动检查系统状态
+                this.checkSystemStatus()
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>

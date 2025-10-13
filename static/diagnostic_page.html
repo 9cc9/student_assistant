@@ -1,0 +1,883 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>入学诊断测试 - AI个性化学习系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .question-card {
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        .question-card.active {
+            border-color: #6366f1;
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+        }
+        .progress-bar {
+            background: linear-gradient(90deg, #6366f1 0%, #a855f7 100%);
+        }
+        .option-card {
+            transition: all 0.2s ease;
+        }
+        .option-card:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .option-card.selected {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div id="app">
+        <!-- 头部 -->
+        <header class="gradient-bg text-white shadow-lg">
+            <div class="container mx-auto px-6 py-6">
+                <h1 class="text-3xl font-bold text-center">
+                    <i class="fas fa-brain mr-3"></i>AI课程入学诊断测试
+                </h1>
+                <p class="text-center mt-2 opacity-90">个性化学习路径，从了解你开始</p>
+            </div>
+        </header>
+
+        <!-- 主要内容 -->
+        <main class="container mx-auto px-6 py-8">
+            <div class="max-w-4xl mx-auto">
+                
+                <!-- 测试开始页面 -->
+                <div v-if="currentStep === 'start'" class="bg-white rounded-xl shadow-lg p-8 text-center">
+                    <i class="fas fa-user-graduate text-6xl text-indigo-500 mb-6"></i>
+                    <h2 class="text-2xl font-bold text-gray-800 mb-4">欢迎参加入学诊断测试</h2>
+                    <p class="text-gray-600 text-lg mb-6">我们将通过4个模块了解您的技能水平和学习偏好</p>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                        <div class="bg-blue-50 p-4 rounded-lg">
+                            <i class="fas fa-lightbulb text-blue-500 text-2xl mb-2"></i>
+                            <h3 class="font-semibold text-gray-800">基础概念测试</h3>
+                            <p class="text-gray-600 text-sm">评估技术基础知识</p>
+                            <span class="text-blue-600 text-xs">约5分钟</span>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg">
+                            <i class="fas fa-code text-green-500 text-2xl mb-2"></i>
+                            <h3 class="font-semibold text-gray-800">编程能力测试</h3>
+                            <p class="text-gray-600 text-sm">评估编程技能水平</p>
+                            <span class="text-green-600 text-xs">约8分钟</span>
+                        </div>
+                        <div class="bg-yellow-50 p-4 rounded-lg">
+                            <i class="fas fa-tools text-yellow-500 text-2xl mb-2"></i>
+                            <h3 class="font-semibold text-gray-800">工具熟悉度调查</h3>
+                            <p class="text-gray-600 text-sm">了解开发工具掌握情况</p>
+                            <span class="text-yellow-600 text-xs">约2分钟</span>
+                        </div>
+                        <div class="bg-purple-50 p-4 rounded-lg">
+                            <i class="fas fa-heart text-purple-500 text-2xl mb-2"></i>
+                            <h3 class="font-semibold text-gray-800">学习偏好调查</h3>
+                            <p class="text-gray-600 text-sm">了解学习风格和目标</p>
+                            <span class="text-purple-600 text-xs">约2分钟</span>
+                        </div>
+                    </div>
+
+                    <form @submit.prevent="startTest">
+                        <div class="mb-6">
+                            <label class="block text-sm font-semibold text-gray-700 mb-2 text-left">学生ID</label>
+                            <input 
+                                v-model="studentId" 
+                                type="text" 
+                                required
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                placeholder="请输入学生ID">
+                        </div>
+                        
+                        <button 
+                            type="submit"
+                            class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 px-8 rounded-lg font-semibold text-lg hover:from-indigo-600 hover:to-purple-700 transition duration-300">
+                            <i class="fas fa-play mr-2"></i>开始测试
+                        </button>
+                    </form>
+                </div>
+
+                <!-- 测试进行中 -->
+                <div v-if="currentStep === 'testing'" class="space-y-6">
+                    
+                    <!-- 进度条 -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-lg font-semibold text-gray-800">{{ getCurrentSectionTitle() }}</h3>
+                            <span class="text-sm text-gray-600">{{ currentQuestionIndex + 1 }} / {{ getCurrentSectionQuestions().length }}</span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                                class="progress-bar h-2 rounded-full transition-all duration-300"
+                                :style="{width: getOverallProgress() + '%'}">
+                            </div>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-600 text-center">
+                            总体进度: {{ Math.round(getOverallProgress()) }}%
+                        </div>
+                    </div>
+
+                    <!-- 当前题目 -->
+                    <div class="question-card active bg-white rounded-xl shadow-lg p-8">
+                        <div class="mb-6">
+                            <h4 class="text-xl font-semibold text-gray-800 mb-3">
+                                {{ getCurrentQuestion().question }}
+                            </h4>
+                        </div>
+
+                        <!-- 选择题 -->
+                        <div v-if="getCurrentQuestion().type === 'multiple_choice'" class="space-y-3">
+                            <div 
+                                v-for="(option, index) in getCurrentQuestion().options" 
+                                :key="index"
+                                @click="selectOption(index)"
+                                class="option-card p-4 rounded-lg border-2 cursor-pointer"
+                                :class="selectedAnswer === index ? 'selected' : 'border-gray-200 hover:border-indigo-300'">
+                                {{ option }}
+                            </div>
+                        </div>
+
+                        <!-- 单选题（学习偏好） -->
+                        <div v-else-if="getCurrentQuestion().type === 'single_choice'" class="space-y-3">
+                            <div 
+                                v-for="(option, index) in getCurrentQuestion().options" 
+                                :key="index"
+                                @click="selectOption(option.value)"
+                                class="option-card p-4 rounded-lg border-2 cursor-pointer"
+                                :class="selectedAnswer === option.value ? 'selected' : 'border-gray-200 hover:border-indigo-300'">
+                                {{ option.label }}
+                            </div>
+                        </div>
+
+                        <!-- 多选题 -->
+                        <div v-else-if="getCurrentQuestion().type === 'multiple_select'" class="space-y-3">
+                            <div 
+                                v-for="(option, index) in getCurrentQuestion().options" 
+                                :key="index"
+                                @click="toggleMultipleOption(option.value)"
+                                class="option-card p-4 rounded-lg border-2 cursor-pointer flex items-center"
+                                :class="multipleAnswers.includes(option.value) ? 'selected' : 'border-gray-200 hover:border-indigo-300'">
+                                <i class="fas mr-3" :class="multipleAnswers.includes(option.value) ? 'fa-check-square' : 'fa-square'"></i>
+                                {{ option.label }}
+                            </div>
+                        </div>
+
+                        <!-- 简答题 -->
+                        <div v-else-if="getCurrentQuestion().type === 'short_answer'" class="space-y-3">
+                            <textarea 
+                                v-model="textAnswer"
+                                rows="4" 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                                placeholder="请输入您的答案...">
+                            </textarea>
+                        </div>
+
+                        <!-- 编程题 -->
+                        <div v-else-if="getCurrentQuestion().type === 'coding'" class="space-y-3">
+                            <div class="bg-gray-100 p-4 rounded-lg mb-3">
+                                <pre class="text-sm"><code>{{ getCurrentQuestion().template }}</code></pre>
+                            </div>
+                            <textarea 
+                                v-model="textAnswer"
+                                rows="8" 
+                                class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent font-mono text-sm"
+                                placeholder="请在这里编写您的代码...">
+                            </textarea>
+                        </div>
+
+                        <!-- 工具熟悉度评级 -->
+                        <div v-else-if="getCurrentQuestion().type === 'rating'" class="space-y-4">
+                            <div v-for="tool in currentToolCategory.tools" :key="tool.name" class="border rounded-lg p-4">
+                                <div class="flex justify-between items-center mb-3">
+                                    <div>
+                                        <h5 class="font-semibold text-gray-800">{{ tool.name }}</h5>
+                                        <p class="text-sm text-gray-600">{{ tool.description }}</p>
+                                    </div>
+                                </div>
+                                <div class="flex space-x-2">
+                                    <button 
+                                        v-for="rating in [1,2,3,4,5]" 
+                                        :key="rating"
+                                        @click="setToolRating(tool.name, rating)"
+                                        class="w-10 h-10 rounded-full border-2 flex items-center justify-center text-sm font-semibold transition"
+                                        :class="getToolRating(tool.name) >= rating ? 
+                                               'bg-indigo-500 text-white border-indigo-500' : 
+                                               'border-gray-300 text-gray-500 hover:border-indigo-300'">
+                                        {{ rating }}
+                                    </button>
+                                </div>
+                                <div class="mt-2 text-xs text-gray-500">
+                                    {{ getRatingText(getToolRating(tool.name)) }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 导航按钮 -->
+                        <div class="flex justify-between mt-8">
+                            <button 
+                                v-if="canGoPrevious()"
+                                @click="previousQuestion"
+                                class="bg-gray-500 text-white px-6 py-2 rounded-lg hover:bg-gray-600 transition">
+                                <i class="fas fa-arrow-left mr-2"></i>上一题
+                            </button>
+                            <div v-else></div>
+                            
+                            <button 
+                                @click="nextQuestion"
+                                :disabled="!canProceed()"
+                                class="bg-indigo-500 text-white px-6 py-2 rounded-lg hover:bg-indigo-600 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                                {{ isLastQuestion() ? '完成测试' : '下一题' }}
+                                <i class="fas ml-2" :class="isLastQuestion() ? 'fa-check' : 'fa-arrow-right'"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 测试完成 -->
+                <div v-if="currentStep === 'completed'" class="bg-white rounded-xl shadow-lg p-8">
+                    <div class="text-center mb-8">
+                        <i class="fas fa-check-circle text-6xl text-green-500 mb-4"></i>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">测试完成！</h2>
+                        <p class="text-gray-600">正在生成您的个性化学习画像...</p>
+                    </div>
+
+                    <!-- 加载动画 -->
+                    <div v-if="!testResults" class="text-center py-8">
+                        <i class="fas fa-spinner fa-spin text-4xl text-indigo-500 mb-4"></i>
+                        <p class="text-gray-600">AI正在分析您的答案，请稍候...</p>
+                    </div>
+
+                    <!-- 测试结果 -->
+                    <div v-else class="space-y-6">
+                        <div class="bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-200">
+                            <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                                <i class="fas fa-chart-bar mr-2 text-blue-600"></i>诊断结果概览
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-blue-600">{{ testResults.concept_score }}/100</div>
+                                    <div class="text-sm text-gray-600">概念理解</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-green-600">{{ testResults.coding_score }}/100</div>
+                                    <div class="text-sm text-gray-600">编程能力</div>
+                                </div>
+                                <div class="text-center">
+                                    <div class="text-3xl font-bold text-purple-600">{{ testResults.tool_familiarity }}/100</div>
+                                    <div class="text-sm text-gray-600">工具熟悉度</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg border border-green-200">
+                            <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                                <i class="fas fa-user-circle mr-2 text-green-600"></i>您的学习画像
+                            </h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <div class="mb-3">
+                                        <span class="font-medium text-gray-700">学习水平：</span>
+                                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">{{ testResults.overall_readiness }}</span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="font-medium text-gray-700">学习风格：</span>
+                                        <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">{{ getStyleDescription(testResults.learning_style_preference) }}</span>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="font-medium text-gray-700">时间预算：</span>
+                                        <span class="bg-purple-100 text-purple-800 px-2 py-1 rounded text-sm">{{ testResults.time_budget_hours_per_week }}小时/周</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div class="mb-3">
+                                        <span class="font-medium text-gray-700">兴趣领域：</span>
+                                        <div class="mt-1">
+                                            <span v-for="interest in testResults.interests" :key="interest"
+                                                  class="bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm mr-1 mb-1 inline-block">{{ interest }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <span class="font-medium text-gray-700">学习目标：</span>
+                                        <div class="mt-1">
+                                            <span v-for="goal in testResults.goals" :key="goal"
+                                                  class="bg-indigo-100 text-indigo-800 px-2 py-1 rounded text-sm mr-1 mb-1 inline-block">{{ goal }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="bg-gradient-to-r from-yellow-50 to-orange-50 p-6 rounded-lg border border-yellow-200">
+                            <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                                <i class="fas fa-lightbulb mr-2 text-yellow-600"></i>个性化建议
+                            </h3>
+                            <ul class="space-y-2">
+                                <li v-for="recommendation in testResults.recommendations" :key="recommendation" class="flex items-start">
+                                    <i class="fas fa-check-circle text-green-500 mr-3 mt-1"></i>
+                                    <span class="text-gray-700">{{ recommendation }}</span>
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div class="text-center mt-8">
+                            <button 
+                                @click="generateLearningPath"
+                                class="bg-gradient-to-r from-green-500 to-blue-600 text-white py-3 px-8 rounded-lg font-semibold text-lg hover:from-green-600 hover:to-blue-700 transition duration-300">
+                                <i class="fas fa-route mr-2"></i>生成个性化学习路径
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 路径生成成功 -->
+                <div v-if="currentStep === 'path-generated'" class="bg-white rounded-xl shadow-lg p-8">
+                    <div class="text-center mb-8">
+                        <i class="fas fa-trophy text-6xl text-yellow-500 mb-4"></i>
+                        <h2 class="text-2xl font-bold text-gray-800 mb-2">个性化学习路径已生成！</h2>
+                        <p class="text-gray-600">AI已为您定制专属的学习计划</p>
+                    </div>
+
+                    <div class="bg-gradient-to-r from-indigo-50 to-purple-50 p-6 rounded-lg border border-indigo-200 mb-6">
+                        <h3 class="text-xl font-semibold text-gray-800 mb-4">
+                            <i class="fas fa-map-signs mr-2 text-indigo-600"></i>您的学习路径
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <div class="mb-3">
+                                    <span class="font-medium text-gray-700">起始通道：</span>
+                                    <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded font-semibold">B通道</span>
+                                </div>
+                                <div class="mb-3">
+                                    <span class="font-medium text-gray-700">学习策略：</span>
+                                    <span class="text-purple-600 font-medium">示例驱动学习</span>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="mb-3">
+                                    <span class="font-medium text-gray-700">预计完成：</span>
+                                    <span class="text-green-600 font-medium">12周</span>
+                                </div>
+                                <div class="mb-3">
+                                    <span class="font-medium text-gray-700">重点关注：</span>
+                                    <span class="text-orange-600 font-medium">RAG和Agent技术</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center">
+                        <a 
+                            href="integrated_index.html?tab=learning-path"
+                            class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white py-3 px-8 rounded-lg font-semibold text-lg hover:from-indigo-600 hover:to-purple-700 transition duration-300 inline-block">
+                            <i class="fas fa-arrow-right mr-2"></i>开始学习之旅
+                        </a>
+                        <button 
+                            @click="restartTest"
+                            class="ml-4 bg-gray-500 text-white py-3 px-8 rounded-lg font-semibold hover:bg-gray-600 transition">
+                            <i class="fas fa-redo mr-2"></i>重新测试
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <!-- 页脚 -->
+        <footer class="bg-gray-800 text-white py-6 mt-12">
+            <div class="container mx-auto px-6 text-center">
+                <p>&copy; 2024 AI个性化学习系统. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    currentStep: 'start', // start, testing, completed, path-generated
+                    studentId: '',
+                    
+                    // 测试相关状态
+                    currentSection: 0, // 0:概念, 1:编程, 2:工具, 3:偏好
+                    currentQuestionIndex: 0,
+                    
+                    // 答案数据
+                    answers: {
+                        concepts: {},
+                        coding: {},
+                        tools: {},
+                        preferences: {}
+                    },
+                    selectedAnswer: null,
+                    multipleAnswers: [],
+                    textAnswer: '',
+                    toolRatings: {},
+                    
+                    // 测试题目数据（从JSON加载）
+                    testInfo: null,
+                    sections: [],
+                    questionsLoaded: false,
+                    loadingError: null,
+                    
+                    currentToolCategory: null,
+                    testResults: null
+                }
+            },
+            async created() {
+                // 组件创建时加载题目数据
+                await this.loadQuestions()
+            },
+            computed: {
+                totalQuestions() {
+                    return this.sections.reduce((total, section) => total + section.questions.length, 0)
+                },
+                completedQuestions() {
+                    return this.currentSection * this.getCurrentSectionQuestions().length + this.currentQuestionIndex
+                }
+            },
+            methods: {
+                async loadQuestions() {
+                    try {
+                        const response = await fetch('/static/diagnostic_questions.json')
+                        if (!response.ok) {
+                            throw new Error('无法加载题目文件，请检查文件是否存在')
+                        }
+                        const data = await response.json()
+                        this.testInfo = data.test_info
+                        
+                        // 转换题目数据格式以适配现有代码
+                        this.sections = this.transformQuestionsData(data.sections)
+                        this.questionsLoaded = true
+                        console.log('✅ 成功从JSON加载测试题目')
+                    } catch (error) {
+                        console.error('❌ 加载题目失败:', error)
+                        this.loadingError = error.message
+                        this.questionsLoaded = false
+                        alert('⚠️ 题目文件加载失败！\n\n请确保 diagnostic_questions.json 文件存在且格式正确。\n\n错误信息: ' + error.message)
+                    }
+                },
+                
+                transformQuestionsData(sectionsData) {
+                    return sectionsData.map(section => {
+                        // 处理工具熟悉度模块
+                        if (section.id === 'tools' && section.survey) {
+                            return {
+                                id: section.id,
+                                title: section.title,
+                                description: section.description,
+                                time_limit: section.time_limit,
+                                questions: section.survey.map((surveyItem, index) => ({
+                                    id: `tools_${index}`,
+                                    question: `请评估您对以下${surveyItem.category}工具的熟悉程度`,
+                                    type: 'rating',
+                                    category: {
+                                        name: surveyItem.category,
+                                        tools: surveyItem.tools
+                                    }
+                                }))
+                            }
+                        }
+                        // 其他模块直接使用questions字段
+                        return {
+                            id: section.id,
+                            title: section.title,
+                            description: section.description,
+                            time_limit: section.time_limit,
+                            questions: section.questions || []
+                        }
+                    })
+                },
+                
+                startTest() {
+                    if (!this.studentId.trim()) {
+                        alert('请输入学生ID')
+                        return
+                    }
+                    if (!this.questionsLoaded) {
+                        alert('测试题目正在加载中，请稍候...')
+                        return
+                    }
+                    this.currentStep = 'testing'
+                },
+                
+                getCurrentSectionTitle() {
+                    return this.sections[this.currentSection]?.title || ''
+                },
+                
+                getCurrentSectionQuestions() {
+                    return this.sections[this.currentSection]?.questions || []
+                },
+                
+                getCurrentQuestion() {
+                    const questions = this.getCurrentSectionQuestions()
+                    const question = questions[this.currentQuestionIndex]
+                    
+                    if (question?.type === 'rating') {
+                        this.currentToolCategory = question.category
+                    }
+                    
+                    return question || {}
+                },
+                
+                getOverallProgress() {
+                    if (this.totalQuestions === 0) return 0
+                    return (this.completedQuestions / this.totalQuestions) * 100
+                },
+                
+                canGoPrevious() {
+                    return this.currentQuestionIndex > 0 || this.currentSection > 0
+                },
+                
+                canProceed() {
+                    const question = this.getCurrentQuestion()
+                    
+                    if (question.type === 'multiple_choice' || question.type === 'single_choice') {
+                        return this.selectedAnswer !== null
+                    } else if (question.type === 'multiple_select') {
+                        return this.multipleAnswers.length > 0
+                    } else if (question.type === 'short_answer' || question.type === 'coding') {
+                        return this.textAnswer.trim().length > 0
+                    } else if (question.type === 'rating') {
+                        return this.currentToolCategory.tools.every(tool => 
+                            this.toolRatings[tool.name] && this.toolRatings[tool.name] > 0
+                        )
+                    }
+                    
+                    return true
+                },
+                
+                isLastQuestion() {
+                    return this.currentSection === this.sections.length - 1 && 
+                           this.currentQuestionIndex === this.getCurrentSectionQuestions().length - 1
+                },
+                
+                selectOption(value) {
+                    this.selectedAnswer = value
+                },
+                
+                toggleMultipleOption(value) {
+                    const index = this.multipleAnswers.indexOf(value)
+                    if (index > -1) {
+                        this.multipleAnswers.splice(index, 1)
+                    } else {
+                        this.multipleAnswers.push(value)
+                    }
+                },
+                
+                setToolRating(toolName, rating) {
+                    this.toolRatings[toolName] = rating
+                },
+                
+                getToolRating(toolName) {
+                    return this.toolRatings[toolName] || 0
+                },
+                
+                getRatingText(rating) {
+                    const texts = ['', '不熟悉', '略有了解', '基本掌握', '熟练使用', '专家级别']
+                    return texts[rating] || ''
+                },
+                
+                saveCurrentAnswer() {
+                    const question = this.getCurrentQuestion()
+                    const sectionId = this.sections[this.currentSection].id
+                    
+                    if (question.type === 'multiple_choice' || question.type === 'single_choice') {
+                        this.answers[sectionId][question.id] = this.selectedAnswer
+                    } else if (question.type === 'multiple_select') {
+                        this.answers[sectionId][question.id] = [...this.multipleAnswers]
+                    } else if (question.type === 'short_answer' || question.type === 'coding') {
+                        this.answers[sectionId][question.id] = this.textAnswer
+                    } else if (question.type === 'rating') {
+                        this.answers[sectionId][question.id] = { ...this.toolRatings }
+                    }
+                },
+                
+                loadAnswer() {
+                    const question = this.getCurrentQuestion()
+                    const sectionId = this.sections[this.currentSection].id
+                    const savedAnswer = this.answers[sectionId][question.id]
+                    
+                    if (question.type === 'multiple_choice' || question.type === 'single_choice') {
+                        this.selectedAnswer = savedAnswer || null
+                    } else if (question.type === 'multiple_select') {
+                        this.multipleAnswers = savedAnswer ? [...savedAnswer] : []
+                    } else if (question.type === 'short_answer' || question.type === 'coding') {
+                        this.textAnswer = savedAnswer || ''
+                    } else if (question.type === 'rating') {
+                        this.toolRatings = savedAnswer ? { ...savedAnswer } : {}
+                    }
+                },
+                
+                previousQuestion() {
+                    this.saveCurrentAnswer()
+                    
+                    if (this.currentQuestionIndex > 0) {
+                        this.currentQuestionIndex--
+                    } else if (this.currentSection > 0) {
+                        this.currentSection--
+                        this.currentQuestionIndex = this.getCurrentSectionQuestions().length - 1
+                    }
+                    
+                    this.loadAnswer()
+                },
+                
+                nextQuestion() {
+                    if (!this.canProceed()) return
+                    
+                    this.saveCurrentAnswer()
+                    
+                    if (this.isLastQuestion()) {
+                        this.completeTest()
+                        return
+                    }
+                    
+                    if (this.currentQuestionIndex < this.getCurrentSectionQuestions().length - 1) {
+                        this.currentQuestionIndex++
+                    } else {
+                        this.currentSection++
+                        this.currentQuestionIndex = 0
+                    }
+                    
+                    this.clearCurrentAnswers()
+                    this.loadAnswer()
+                },
+                
+                clearCurrentAnswers() {
+                    this.selectedAnswer = null
+                    this.multipleAnswers = []
+                    this.textAnswer = ''
+                    this.toolRatings = {}
+                },
+                
+                async completeTest() {
+                    this.currentStep = 'completed'
+                    
+                    // 模拟API调用延迟
+                    setTimeout(async () => {
+                        try {
+                            // 构造测试结果数据
+                            const diagnosticResults = this.buildDiagnosticResults()
+                            
+                            // 调用诊断API
+                            const response = await fetch('/api/learning-path/diagnostic', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    student_id: this.studentId,
+                                    diagnostic_results: diagnosticResults
+                                })
+                            })
+                            
+                            if (response.ok) {
+                                const result = await response.json()
+                                this.testResults = result.profile_created ? {
+                                    concept_score: diagnosticResults.concept_score,
+                                    coding_score: diagnosticResults.coding_score,
+                                    tool_familiarity: diagnosticResults.tool_familiarity,
+                                    overall_readiness: this.calculateOverallReadiness(diagnosticResults),
+                                    learning_style_preference: diagnosticResults.learning_style_preference,
+                                    time_budget_hours_per_week: diagnosticResults.time_budget_hours_per_week,
+                                    interests: diagnosticResults.interests,
+                                    goals: diagnosticResults.goals,
+                                    recommendations: this.generateRecommendations(diagnosticResults)
+                                } : null
+                            } else {
+                                // 使用模拟结果
+                                this.testResults = this.generateMockResults(diagnosticResults)
+                            }
+                        } catch (error) {
+                            console.error('诊断评估失败:', error)
+                            // 使用模拟结果作为后备
+                            this.testResults = this.generateMockResults(this.buildDiagnosticResults())
+                        }
+                    }, 2000)
+                },
+                
+                buildDiagnosticResults() {
+                    // 计算概念测试得分
+                    const conceptScore = this.calculateConceptScore()
+                    
+                    // 计算编程测试得分
+                    const codingScore = this.calculateCodingScore()
+                    
+                    // 计算工具熟悉度
+                    const toolFamiliarity = this.calculateToolFamiliarity()
+                    
+                    return {
+                        concept_score: conceptScore,
+                        coding_score: codingScore,
+                        tool_familiarity: toolFamiliarity,
+                        skill_scores: this.extractSkillScores(),
+                        learning_style_preference: this.answers.preferences.learning_style,
+                        time_budget_hours_per_week: this.answers.preferences.time_budget,
+                        interests: this.answers.preferences.interests || [],
+                        goals: this.answers.preferences.goals || []
+                    }
+                },
+                
+                calculateConceptScore() {
+                    const conceptAnswers = this.answers.concepts
+                    let score = 0
+                    let total = 0
+                    
+                    this.sections[0].questions.forEach(q => {
+                        total += 100
+                        if (q.type === 'multiple_choice' && conceptAnswers[q.id] === 0) { // 选项A
+                            score += 100
+                        } else if (q.type === 'short_answer' && conceptAnswers[q.id]) {
+                            // 简单的关键词匹配评分
+                            score += Math.min(conceptAnswers[q.id].length * 2, 100)
+                        }
+                    })
+                    
+                    return Math.round(total > 0 ? (score / total) * 100 : 0)
+                },
+                
+                calculateCodingScore() {
+                    const codingAnswers = this.answers.coding
+                    let score = 0
+                    let total = 200 // 两道题，每题100分
+                    
+                    if (codingAnswers.code_1 && codingAnswers.code_1.includes('max')) {
+                        score += 80
+                    }
+                    if (codingAnswers.code_2 && codingAnswers.code_2.includes('引用')) {
+                        score += 70
+                    }
+                    
+                    return Math.round((score / total) * 100)
+                },
+                
+                calculateToolFamiliarity() {
+                    const toolAnswers = this.answers.tools
+                    let totalRating = 0
+                    let toolCount = 0
+                    
+                    Object.values(toolAnswers).forEach(ratings => {
+                        if (ratings && typeof ratings === 'object') {
+                            Object.values(ratings).forEach(rating => {
+                                totalRating += rating * 20 // 转换为百分制
+                                toolCount++
+                            })
+                        }
+                    })
+                    
+                    return toolCount > 0 ? Math.round(totalRating / toolCount) : 0
+                },
+                
+                extractSkillScores() {
+                    const skillScores = {}
+                    const toolAnswers = this.answers.tools
+                    
+                    Object.values(toolAnswers).forEach(ratings => {
+                        if (ratings && typeof ratings === 'object') {
+                            Object.entries(ratings).forEach(([tool, rating]) => {
+                                skillScores[tool] = rating * 20
+                            })
+                        }
+                    })
+                    
+                    return skillScores
+                },
+                
+                calculateOverallReadiness(results) {
+                    const avg = (results.concept_score + results.coding_score + results.tool_familiarity) / 3
+                    if (avg >= 85) return '优秀'
+                    if (avg >= 70) return '良好'
+                    if (avg >= 50) return '合格'
+                    return '需要加强'
+                },
+                
+                generateRecommendations(results) {
+                    const recommendations = []
+                    
+                    if (results.concept_score < 60) {
+                        recommendations.push('建议先复习基础技术概念，特别是API、HTTP等网络基础知识')
+                    }
+                    if (results.coding_score < 60) {
+                        recommendations.push('建议加强编程基础练习，重点关注Python语法和错误处理')
+                    }
+                    if (results.tool_familiarity < 60) {
+                        recommendations.push('建议先熟悉开发环境和基础工具，如Git、命令行等')
+                    }
+                    
+                    if (results.interests.includes('RAG')) {
+                        recommendations.push('可以重点关注RAG系统构建，这与你的兴趣匹配')
+                    }
+                    
+                    if (recommendations.length === 0) {
+                        recommendations.push('你的基础不错，可以按标准路径学习，适当挑战高难度任务')
+                    }
+                    
+                    return recommendations
+                },
+                
+                generateMockResults(diagnosticResults) {
+                    return {
+                        concept_score: diagnosticResults.concept_score,
+                        coding_score: diagnosticResults.coding_score,
+                        tool_familiarity: diagnosticResults.tool_familiarity,
+                        overall_readiness: this.calculateOverallReadiness(diagnosticResults),
+                        learning_style_preference: diagnosticResults.learning_style_preference,
+                        time_budget_hours_per_week: diagnosticResults.time_budget_hours_per_week,
+                        interests: diagnosticResults.interests,
+                        goals: diagnosticResults.goals,
+                        recommendations: this.generateRecommendations(diagnosticResults)
+                    }
+                },
+                
+                getStyleDescription(style) {
+                    const descriptions = {
+                        'examples_first': '示例驱动学习',
+                        'theory_first': '理论优先学习',
+                        'hands_on': '动手实践学习',
+                        'visual': '可视化学习'
+                    }
+                    return descriptions[style] || style
+                },
+                
+                generateLearningPath() {
+                    // 模拟生成学习路径
+                    setTimeout(() => {
+                        this.currentStep = 'path-generated'
+                    }, 2000)
+                },
+                
+                restartTest() {
+                    // 重置所有数据
+                    this.currentStep = 'start'
+                    this.currentSection = 0
+                    this.currentQuestionIndex = 0
+                    this.answers = { concepts: {}, coding: {}, tools: {}, preferences: {} }
+                    this.testResults = null
+                    this.clearCurrentAnswers()
+                }
+            },
+            watch: {
+                currentSection() {
+                    this.loadAnswer()
+                },
+                currentQuestionIndex() {
+                    this.loadAnswer()
+                }
+            },
+            mounted() {
+                console.log('入学诊断测试系统已加载')
+                if (this.loadingError) {
+                    console.warn('⚠️ 题目加载有警告:', this.loadingError)
+                }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>

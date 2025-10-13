@@ -6,6 +6,7 @@ from datetime import datetime
 import json
 
 from ..models.student import StudentProfile, LearningLevel, LearningStyle
+from .ai_scoring_service import get_ai_scoring_service
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +29,8 @@ class DiagnosticService:
         self.coding_questions = self._init_coding_questions()  
         self.tool_survey = self._init_tool_survey()
         self.learning_preference_survey = self._init_learning_preference_survey()
-        logger.info("🧪 诊断服务已初始化")
+        self.ai_scoring = get_ai_scoring_service()  # 初始化AI评分服务
+        logger.info(f"🧪 诊断服务初始化完成，AI评分: {'已启用' if self.ai_scoring.is_enabled() else '未启用'}")
     
     def _init_concept_questions(self) -> List[Dict[str, Any]]:
         """初始化概念测试题目"""
@@ -345,11 +347,22 @@ class DiagnosticService:
             if question["type"] == "multiple_choice":
                 if student_answer == question["correct_answer"]:
                     total_score += question["weight"]
+                    logger.info(f"  ✅ {question['id']}: 选择题答对 +{question['weight']}分")
+                else:
+                    logger.info(f"  ❌ {question['id']}: 选择题答错")
             elif question["type"] == "short_answer":
-                # 简单的关键词匹配评分
+                # AI智能评分或关键词匹配评分
                 if student_answer:
-                    score = self._score_short_answer(student_answer, question["sample_answer"])
-                    total_score += int(question["weight"] * score)
+                    score = self._score_short_answer(
+                        student_answer, 
+                        question["sample_answer"],
+                        question_text=question.get("question", "")
+                    )
+                    earned = int(question["weight"] * score)
+                    total_score += earned
+                    logger.info(f"  {'✅' if score > 0.6 else '⚠️'} {question['id']}: 简答题 +{earned}/{question['weight']}分")
+                else:
+                    logger.info(f"  ⚠️ {question['id']}: 未作答")
         
         return int((total_score / max_score) * 100) if max_score > 0 else 0
     
@@ -364,13 +377,21 @@ class DiagnosticService:
             
             if question["type"] == "coding":
                 if student_answer:
-                    # 简化的代码评估：检查关键词和结构
+                    # AI智能评分或简化代码评估
                     score = self._score_coding_answer(student_answer, question)
-                    total_score += int(question["weight"] * score)
+                    earned = int(question["weight"] * score)
+                    total_score += earned
+                    logger.info(f"  {'✅' if score > 0.6 else '⚠️'} {question['id']}: 编程题 +{earned}/{question['weight']}分")
+                else:
+                    logger.info(f"  ⚠️ {question['id']}: 未提交代码")
             elif question["type"] == "code_analysis":
                 if student_answer:
                     score = self._score_analysis_answer(student_answer, question)
-                    total_score += int(question["weight"] * score)
+                    earned = int(question["weight"] * score)
+                    total_score += earned
+                    logger.info(f"  {'✅' if score > 0.6 else '⚠️'} {question['id']}: 代码分析题 +{earned}/{question['weight']}分")
+                else:
+                    logger.info(f"  ⚠️ {question['id']}: 未作答")
         
         return int((total_score / max_score) * 100) if max_score > 0 else 0
     
@@ -411,8 +432,37 @@ class DiagnosticService:
             "challenges": preference_responses.get("challenges", "concepts")
         }
     
-    def _score_short_answer(self, student_answer: str, sample_answer: str) -> float:
-        """简单的短答题评分"""
+    def _score_short_answer(self, student_answer: str, sample_answer: str, question_text: str = "") -> float:
+        """
+        简答题评分（优先使用AI评分）
+        
+        Args:
+            student_answer: 学生答案
+            sample_answer: 参考答案
+            question_text: 题目内容（用于AI评分）
+            
+        Returns:
+            0.0-1.0之间的得分率
+        """
+        if not student_answer:
+            return 0.0
+        
+        # 尝试使用AI评分
+        if self.ai_scoring.is_enabled() and question_text:
+            try:
+                result = self.ai_scoring.score_short_answer(
+                    question=question_text,
+                    student_answer=student_answer,
+                    reference_answer=sample_answer,
+                    max_score=100
+                )
+                score_rate = result['score'] / 100.0
+                logger.info(f"  📝 AI评分: {result['score']}/100 - {result['feedback']}")
+                return score_rate
+            except Exception as e:
+                logger.warning(f"  ⚠️ AI评分失败，使用规则评分: {str(e)}")
+        
+        # 备用：简单的关键词匹配
         student_words = set(student_answer.lower().split())
         sample_words = set(sample_answer.lower().split())
         
@@ -422,10 +472,46 @@ class DiagnosticService:
             return 0.0
         
         similarity = len(common_words) / len(sample_words)
-        return min(similarity * 1.2, 1.0)  # 稍微加权，最高不超过1.0
+        score_rate = min(similarity * 1.2, 1.0)
+        logger.info(f"  📝 规则评分: {int(score_rate * 100)}/100")
+        return score_rate
     
     def _score_coding_answer(self, student_code: str, question: Dict[str, Any]) -> float:
-        """简化的代码评分"""
+        """
+        编程题评分（优先使用AI评分）
+        
+        Args:
+            student_code: 学生代码
+            question: 题目信息
+            
+        Returns:
+            0.0-1.0之间的得分率
+        """
+        if not student_code:
+            return 0.0
+        
+        # 尝试使用AI评分
+        if self.ai_scoring.is_enabled():
+            try:
+                requirements = question.get("evaluation_criteria", [
+                    "代码功能正确",
+                    "代码结构清晰", 
+                    "包含必要的错误处理"
+                ])
+                
+                result = self.ai_scoring.score_coding_question(
+                    question=question.get("question", ""),
+                    student_code=student_code,
+                    requirements=requirements,
+                    max_score=100
+                )
+                score_rate = result['score'] / 100.0
+                logger.info(f"  💻 AI评分: {result['score']}/100 - {result['feedback']}")
+                return score_rate
+            except Exception as e:
+                logger.warning(f"  ⚠️ AI评分失败，使用规则评分: {str(e)}")
+        
+        # 备用：基础结构检查
         score = 0.0
         
         # 基础结构检查
@@ -444,11 +530,39 @@ class DiagnosticService:
             if "requests." in student_code:
                 score += 0.2
         
+        logger.info(f"  💻 规则评分: {int(score * 100)}/100")
         return min(score, 1.0)
     
     def _score_analysis_answer(self, student_answer: str, question: Dict[str, Any]) -> float:
-        """代码分析题评分"""
-        # 简化评分：检查是否提到关键概念
+        """
+        代码分析题评分（优先使用AI评分）
+        
+        Args:
+            student_answer: 学生的分析
+            question: 题目信息
+            
+        Returns:
+            0.0-1.0之间的得分率
+        """
+        if not student_answer:
+            return 0.0
+        
+        # 尝试使用AI评分
+        if self.ai_scoring.is_enabled():
+            try:
+                result = self.ai_scoring.score_code_analysis(
+                    question=question.get("question", ""),
+                    code_snippet=question.get("code", ""),
+                    student_analysis=student_answer,
+                    max_score=100
+                )
+                score_rate = result['score'] / 100.0
+                logger.info(f"  🔍 AI评分: {result['score']}/100 - {result['feedback']}")
+                return score_rate
+            except Exception as e:
+                logger.warning(f"  ⚠️ AI评分失败，使用规则评分: {str(e)}")
+        
+        # 备用：简化评分，检查关键概念
         key_concepts = ["引用", "列表", "append", "修改", "同一个对象"]
         score = 0.0
         
@@ -456,6 +570,7 @@ class DiagnosticService:
             if concept in student_answer:
                 score += 0.2
         
+        logger.info(f"  🔍 规则评分: {int(score * 100)}/100")
         return min(score, 1.0)
     
     def _calculate_overall_readiness(self, concept_score: int, coding_score: int, tool_score: int) -> str:
