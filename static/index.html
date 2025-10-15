@@ -152,18 +152,21 @@
                             <i class="fas fa-user-circle mr-2"></i>个人中心
                         </button>
                         <button 
+                            v-if="isLoggedIn"
                             @click="activeTab = 'diagnostic'"
                             :class="['px-6 py-3 font-semibold text-lg border-b-2 whitespace-nowrap', activeTab === 'profile' ? 'ml-8' : '', 
                                     activeTab === 'diagnostic' ? 'border-purple-500 text-purple-600' : 'border-transparent text-gray-500']">
                             <i class="fas fa-user-graduate mr-2"></i>入学诊断
                         </button>
                         <button 
+                            v-if="isLoggedIn"
                             @click="activeTab = 'learning-path'"
                             :class="['px-6 py-3 font-semibold text-lg border-b-2 ml-8 whitespace-nowrap', 
                                     activeTab === 'learning-path' ? 'border-green-500 text-green-600' : 'border-transparent text-gray-500']">
                             <i class="fas fa-route mr-2"></i>学习路径
                         </button>
                         <button 
+                            v-if="isLoggedIn"
                             @click="activeTab = 'upload'"
                             :class="['px-6 py-3 font-semibold text-lg border-b-2 ml-8 whitespace-nowrap', 
                                     activeTab === 'upload' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500']">
@@ -171,7 +174,7 @@
                         </button>
                         <button 
                             @click="activeTab = 'history'"
-                            :class="['px-6 py-3 font-semibold text-lg border-b-2 ml-8 whitespace-nowrap', 
+                            :class="['px-6 py-3 font-semibold text-lg border-b-2 whitespace-nowrap', 
                                     activeTab === 'history' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500']">
                             <i class="fas fa-history mr-2"></i>学习记录
                         </button>
@@ -354,7 +357,7 @@
                 </div>
 
                 <!-- 入学诊断模式 -->
-                <div v-show="activeTab === 'diagnostic'" class="bg-white rounded-xl card-shadow p-8">
+                <div v-show="isLoggedIn && activeTab === 'diagnostic'" class="bg-white rounded-xl card-shadow p-8">
                     <div v-if="!diagnosticStarted && !diagnosticCompleted">
                         <div class="text-center mb-8">
                             <h3 class="text-2xl font-bold text-gray-800 mb-4">AI课程入学诊断测试</h3>
@@ -744,7 +747,7 @@
                 </div>
 
                 <!-- 学习路径模式 -->
-                <div v-show="activeTab === 'learning-path'" class="bg-white rounded-xl card-shadow p-8">
+                <div v-show="isLoggedIn && activeTab === 'learning-path'" class="bg-white rounded-xl card-shadow p-8">
                     <div v-if="!studentProgress">
                         <div class="text-center py-12">
                             <i class="fas fa-map-signs text-6xl text-gray-300 mb-4"></i>
@@ -881,7 +884,7 @@
                 </div>
 
                 <!-- 作业提交模式 (保持原有功能) -->
-                <div v-show="activeTab === 'upload'" class="bg-white rounded-xl card-shadow p-8">
+                <div v-show="isLoggedIn && activeTab === 'upload'" class="bg-white rounded-xl card-shadow p-8">
                     <form @submit.prevent="submitAssignment" enctype="multipart/form-data">
                         <div class="space-y-6">
                             <!-- 学生信息 -->

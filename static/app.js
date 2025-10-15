@@ -22,7 +22,7 @@ createApp({
             },
             authError: '',
             
-            activeTab: 'diagnostic',
+            activeTab: 'history', // 默认显示学习记录标签页
             loading: false,
             isDragging: false,
             selectedFiles: [],
@@ -662,6 +662,9 @@ createApp({
                     // 关闭模态框
                     this.showLoginModal = false
                     
+                    // 切换到个人中心标签页
+                    this.activeTab = 'profile'
+                    
                     // 加载学生数据
                     await this.loadStudentData()
                     
@@ -785,6 +788,9 @@ createApp({
                         this.authToken = token
                         this.currentStudent = JSON.parse(studentData)
                         this.isLoggedIn = true
+                        
+                        // 切换到个人中心标签页
+                        this.activeTab = 'profile'
                         
                         // 自动填充学生ID
                         this.diagnosticForm.studentId = this.currentStudent.student_id
