@@ -31,6 +31,8 @@ from .diagnostic_api import (
     submit_diagnostic_test,
     get_diagnostic_statistics
 )
+from .auth_api import auth_router
+from .student_api import student_router
 
 # 创建评估路由器
 assessment_router = APIRouter(prefix="/api", tags=["Assessment"])
@@ -76,5 +78,7 @@ __all__ = [
     "system_router", 
     "upload_router",
     "learning_path_router",
-    "diagnostic_router"
+    "diagnostic_router",
+    "auth_router",
+    "student_router"
 ]

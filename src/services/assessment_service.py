@@ -15,7 +15,7 @@ from ..evaluators.idea_evaluator import IdeaEvaluator
 from ..evaluators.ui_analyzer import UIAnalyzer
 from ..evaluators.code_reviewer import CodeReviewer
 from ..evaluators.score_aggregator import ScoreAggregator
-from ..config.settings import assessment_config
+from ..config.settings import assessment_config, path_config
 from .learning_path_service import LearningPathService
 from ..models.learning_path import NodeStatus
 
@@ -361,8 +361,11 @@ class AssessmentService:
             
             logger.info(f"📋 🎉 评估完成并保存: {assessment_id}, 总分: {result['overall_score']}")
             
-            # 🆕 集成学习路径推荐系统
-            await self._update_learning_path(assessment_id, assessment)
+            # 🆕 集成学习路径推荐系统（可通过配置开关控制）
+            if path_config.enable_path_integration:
+                await self._update_learning_path(assessment_id, assessment)
+            else:
+                logger.info(f"📋 ℹ️ 学习路径集成已禁用，跳过路径更新: {assessment_id}")
             
         except Exception as e:
             # 处理评估异常

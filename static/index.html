@@ -56,12 +56,121 @@
         <!-- 头部 -->
         <header class="gradient-bg text-white shadow-lg">
             <div class="container mx-auto px-6 py-8">
+                <div class="flex justify-between items-center mb-4">
+                    <div></div>
+                    <!-- 登录状态显示 -->
+                    <div v-if="!isLoggedIn" class="flex gap-3">
+                        <button @click="showLoginModal = true" class="px-4 py-2 bg-white text-purple-600 rounded-lg font-semibold hover:bg-gray-100 transition">
+                            <i class="fas fa-sign-in-alt mr-2"></i>登录
+                        </button>
+                        <button @click="showRegisterModal = true" class="px-4 py-2 bg-purple-500 text-white rounded-lg font-semibold hover:bg-purple-600 transition border-2 border-white">
+                            <i class="fas fa-user-plus mr-2"></i>注册
+                        </button>
+                    </div>
+                    <div v-else class="flex items-center gap-4">
+                        <div class="text-right">
+                            <p class="font-semibold">{{ currentStudent?.name }}</p>
+                            <p class="text-sm opacity-80">{{ currentStudent?.student_id }}</p>
+                        </div>
+                        <button @click="logout" class="px-4 py-2 bg-red-500 text-white rounded-lg font-semibold hover:bg-red-600 transition">
+                            <i class="fas fa-sign-out-alt mr-2"></i>登出
+                        </button>
+                    </div>
+                </div>
                 <h1 class="text-4xl font-bold text-center">
                     <i class="fas fa-robot mr-3"></i>AI助教评估与个性化学习路径系统
                 </h1>
                 <p class="text-center mt-3 text-lg opacity-90">智能评估 + 个性化学习 = 因材施教</p>
             </div>
         </header>
+        
+        <!-- 登录模态框 -->
+        <div v-if="showLoginModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="showLoginModal = false">
+            <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4" @click.stop>
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+                    <i class="fas fa-sign-in-alt text-purple-600 mr-2"></i>学生登录
+                </h2>
+                <form @submit.prevent="login">
+                    <div v-if="authError" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                        {{ authError }}
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">学生ID</label>
+                        <input v-model="loginForm.student_id" type="text" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="请输入学生ID">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">密码</label>
+                        <input v-model="loginForm.password" type="password" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="请输入密码">
+                    </div>
+                    <button type="submit" :disabled="loading"
+                        class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:bg-gray-400">
+                        <i class="fas fa-sign-in-alt mr-2"></i>{{ loading ? '登录中...' : '登录' }}
+                    </button>
+                    <div class="mt-4 text-center">
+                        <button type="button" @click="showRegisterModal = true; showLoginModal = false" class="text-purple-600 hover:text-purple-700 text-sm">
+                            还没有账号？立即注册
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 注册模态框 -->
+        <div v-if="showRegisterModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50" @click="showRegisterModal = false">
+            <div class="bg-white rounded-xl shadow-2xl p-8 max-w-md w-full mx-4" @click.stop>
+                <h2 class="text-2xl font-bold text-gray-800 mb-6 text-center">
+                    <i class="fas fa-user-plus text-purple-600 mr-2"></i>学生注册
+                </h2>
+                <form @submit.prevent="register">
+                    <div v-if="authError" class="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                        {{ authError }}
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">学生ID *</label>
+                        <input v-model="registerForm.student_id" type="text" required minlength="3"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="请输入学生ID（至少3位）">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">姓名 *</label>
+                        <input v-model="registerForm.name" type="text" required
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="请输入姓名">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">邮箱（可选）</label>
+                        <input v-model="registerForm.email" type="email"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="请输入邮箱">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">密码 *</label>
+                        <input v-model="registerForm.password" type="password" required minlength="6"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="请输入密码（至少6位）">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold text-gray-700 mb-2">确认密码 *</label>
+                        <input v-model="registerForm.confirmPassword" type="password" required minlength="6"
+                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                            placeholder="请再次输入密码">
+                    </div>
+                    <button type="submit" :disabled="loading"
+                        class="w-full bg-purple-600 text-white py-3 rounded-lg font-semibold hover:bg-purple-700 transition disabled:bg-gray-400">
+                        <i class="fas fa-user-plus mr-2"></i>{{ loading ? '注册中...' : '注册' }}
+                    </button>
+                    <div class="mt-4 text-center">
+                        <button type="button" @click="showLoginModal = true; showRegisterModal = false" class="text-purple-600 hover:text-purple-700 text-sm">
+                            已有账号？立即登录
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
 
         <!-- 主要内容 -->
         <main class="container mx-auto px-6 py-12">
@@ -76,8 +185,15 @@
                 <div class="mb-8">
                     <div class="flex border-b overflow-x-auto">
                         <button 
-                            @click="activeTab = 'diagnostic'"
+                            v-if="isLoggedIn"
+                            @click="activeTab = 'profile'"
                             :class="['px-6 py-3 font-semibold text-lg border-b-2 whitespace-nowrap', 
+                                    activeTab === 'profile' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500']">
+                            <i class="fas fa-user-circle mr-2"></i>个人中心
+                        </button>
+                        <button 
+                            @click="activeTab = 'diagnostic'"
+                            :class="['px-6 py-3 font-semibold text-lg border-b-2 whitespace-nowrap', activeTab === 'profile' ? 'ml-8' : '', 
                                     activeTab === 'diagnostic' ? 'border-purple-500 text-purple-600' : 'border-transparent text-gray-500']">
                             <i class="fas fa-user-graduate mr-2"></i>入学诊断
                         </button>
@@ -99,6 +215,181 @@
                                     activeTab === 'history' ? 'border-orange-500 text-orange-600' : 'border-transparent text-gray-500']">
                             <i class="fas fa-history mr-2"></i>学习记录
                         </button>
+                    </div>
+                </div>
+
+                <!-- 个人中心 -->
+                <div v-if="isLoggedIn && activeTab === 'profile'" class="bg-white rounded-xl card-shadow p-8">
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                            <i class="fas fa-user-circle text-indigo-600 mr-3"></i>个人信息
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="bg-gradient-to-br from-indigo-50 to-purple-50 p-6 rounded-lg">
+                                <div class="flex items-center mb-4">
+                                    <i class="fas fa-id-card text-indigo-600 text-2xl mr-3"></i>
+                                    <div>
+                                        <p class="text-sm text-gray-600">学生ID</p>
+                                        <p class="text-lg font-semibold text-gray-800">{{ currentStudent?.student_id }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-gradient-to-br from-blue-50 to-cyan-50 p-6 rounded-lg">
+                                <div class="flex items-center mb-4">
+                                    <i class="fas fa-user text-blue-600 text-2xl mr-3"></i>
+                                    <div>
+                                        <p class="text-sm text-gray-600">姓名</p>
+                                        <p class="text-lg font-semibold text-gray-800">{{ currentStudent?.name }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div v-if="currentStudent?.email" class="bg-gradient-to-br from-green-50 to-emerald-50 p-6 rounded-lg">
+                                <div class="flex items-center mb-4">
+                                    <i class="fas fa-envelope text-green-600 text-2xl mr-3"></i>
+                                    <div>
+                                        <p class="text-sm text-gray-600">邮箱</p>
+                                        <p class="text-lg font-semibold text-gray-800">{{ currentStudent?.email }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="bg-gradient-to-br from-orange-50 to-amber-50 p-6 rounded-lg">
+                                <div class="flex items-center mb-4">
+                                    <i class="fas fa-calendar text-orange-600 text-2xl mr-3"></i>
+                                    <div>
+                                        <p class="text-sm text-gray-600">注册时间</p>
+                                        <p class="text-sm font-semibold text-gray-800">{{ formatDateTime(currentStudent?.created_at) }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 诊断历史卡片（个人中心版本） -->
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                            <i class="fas fa-stethoscope text-purple-600 mr-3"></i>诊断测试历史
+                        </h3>
+                        
+                        <!-- 加载中 -->
+                        <div v-if="diagnosticHistoryLoading" class="text-center py-8">
+                            <i class="fas fa-spinner fa-spin mr-2 text-purple-600"></i>
+                            <span class="text-gray-600">加载中...</span>
+                        </div>
+                        
+                        <!-- 诊断历史列表 -->
+                        <div v-else-if="diagnosticHistory.length > 0" class="space-y-4">
+                            <div v-for="record in diagnosticHistory" :key="record.test_id" 
+                                class="bg-gradient-to-br from-purple-50 to-pink-50 p-6 rounded-lg border-2 border-purple-100 hover:border-purple-300 transition">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div>
+                                        <p class="text-sm text-gray-600 mb-1">测试时间</p>
+                                        <p class="font-semibold text-gray-800">{{ formatDateTime(record.submitted_at) }}</p>
+                                    </div>
+                                    <div class="text-right">
+                                        <p class="text-sm text-gray-600 mb-1">整体评价</p>
+                                        <span class="px-3 py-1 rounded-full text-sm font-semibold"
+                                            :class="{
+                                                'bg-green-100 text-green-700': record.overall_readiness === '优秀',
+                                                'bg-blue-100 text-blue-700': record.overall_readiness === '良好',
+                                                'bg-yellow-100 text-yellow-700': record.overall_readiness === '合格',
+                                                'bg-orange-100 text-orange-700': record.overall_readiness === '需要加强'
+                                            }">
+                                            {{ record.overall_readiness }}
+                                        </span>
+                                    </div>
+                                </div>
+                                
+                                <div class="grid grid-cols-3 gap-4 mb-4">
+                                    <div class="text-center bg-white/50 rounded-lg p-3">
+                                        <p class="text-2xl font-bold text-purple-600">{{ record.concept_score }}</p>
+                                        <p class="text-xs text-gray-600 mt-1">概念理解</p>
+                                    </div>
+                                    <div class="text-center bg-white/50 rounded-lg p-3">
+                                        <p class="text-2xl font-bold text-blue-600">{{ record.coding_score }}</p>
+                                        <p class="text-xs text-gray-600 mt-1">编程能力</p>
+                                    </div>
+                                    <div class="text-center bg-white/50 rounded-lg p-3">
+                                        <p class="text-2xl font-bold text-pink-600">{{ record.tool_familiarity }}</p>
+                                        <p class="text-xs text-gray-600 mt-1">工具熟悉度</p>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center justify-between text-sm">
+                                    <div class="flex items-center gap-3">
+                                        <span class="px-2 py-1 bg-purple-100 text-purple-700 rounded">
+                                            <i class="fas fa-layer-group mr-1"></i>{{ record.learning_level }}通道
+                                        </span>
+                                        <span class="text-gray-600">
+                                            <i class="fas fa-heart mr-1"></i>{{ record.learning_style === 'hands_on' ? '实践型' : record.learning_style === 'theory_first' ? '理论型' : '混合型' }}
+                                        </span>
+                                    </div>
+                                    <span class="text-gray-500 text-xs">ID: {{ record.test_id.slice(-8) }}</span>
+                                </div>
+                                
+                                <div v-if="record.interests && record.interests.length > 0" class="mt-3 pt-3 border-t border-purple-200">
+                                    <p class="text-xs text-gray-600 mb-2">兴趣领域:</p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <span v-for="interest in record.interests" :key="interest" 
+                                            class="px-2 py-1 bg-white text-purple-600 rounded-full text-xs">
+                                            {{ interest }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 空状态 -->
+                        <div v-else class="text-center py-12">
+                            <i class="fas fa-clipboard-list text-6xl text-gray-300 mb-4"></i>
+                            <p class="text-xl text-gray-500 mb-2">暂无诊断记录</p>
+                            <p class="text-gray-400 mb-4">完成入学诊断测试后，记录将显示在这里</p>
+                            <button @click="activeTab = 'diagnostic'" 
+                                class="px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition">
+                                <i class="fas fa-user-graduate mr-2"></i>开始诊断测试
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- 学习统计 -->
+                    <div class="mb-8">
+                        <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                            <i class="fas fa-chart-line text-green-600 mr-3"></i>学习统计
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-lg text-center">
+                                <div class="text-3xl font-bold text-blue-600 mb-2">{{ historyData.length }}</div>
+                                <div class="text-gray-600 font-semibold">完成作业数</div>
+                            </div>
+                            <div class="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg text-center">
+                                <div class="text-3xl font-bold text-green-600 mb-2">-</div>
+                                <div class="text-gray-600 font-semibold">平均成绩</div>
+                            </div>
+                            <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg text-center">
+                                <div class="text-3xl font-bold text-purple-600 mb-2">-</div>
+                                <div class="text-gray-600 font-semibold">学习进度</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 快速操作 -->
+                    <div>
+                        <h3 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                            <i class="fas fa-bolt text-yellow-600 mr-3"></i>快速操作
+                        </h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <button @click="activeTab = 'diagnostic'" class="p-4 border-2 border-purple-200 rounded-lg hover:border-purple-400 hover:bg-purple-50 transition text-left">
+                                <i class="fas fa-user-graduate text-purple-600 text-xl mr-3"></i>
+                                <span class="font-semibold text-gray-800">开始诊断测试</span>
+                            </button>
+                            <button @click="activeTab = 'upload'" class="p-4 border-2 border-blue-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition text-left">
+                                <i class="fas fa-upload text-blue-600 text-xl mr-3"></i>
+                                <span class="font-semibold text-gray-800">提交作业</span>
+                            </button>
+                            <button @click="activeTab = 'history'" class="p-4 border-2 border-orange-200 rounded-lg hover:border-orange-400 hover:bg-orange-50 transition text-left">
+                                <i class="fas fa-history text-orange-600 text-xl mr-3"></i>
+                                <span class="font-semibold text-gray-800">查看学习记录</span>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -799,11 +1090,21 @@
             <div v-if="assessmentResult" class="max-w-6xl mx-auto mt-16">
                 <div class="result-card bg-white rounded-xl card-shadow overflow-hidden">
                     <!-- 结果头部 -->
-                    <div class="bg-gradient-to-r from-green-500 to-blue-600 text-white p-6">
+                    <div class="bg-gradient-to-r text-white p-6" :class="assessmentResult.status === 'completed' ? 'from-green-500 to-blue-600' : 'from-yellow-500 to-orange-600'">
                         <h3 class="text-2xl font-bold mb-2">
-                            <i class="fas fa-check-circle mr-3"></i>作业评估完成
+                            <i class="mr-3" :class="assessmentResult.status === 'completed' ? 'fas fa-check-circle' : 'fas fa-spinner fa-spin'"></i>
+                            {{ assessmentResult.status === 'completed' ? '作业评估完成' : '评估处理中...' }}
                         </h3>
                         <p class="opacity-90">评估ID: {{ assessmentResult.assessment_id }}</p>
+                        <p v-if="assessmentResult.status === 'processing'" class="opacity-90 text-sm mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>AI正在对您的作业进行多维度分析，请稍候...
+                        </p>
+                        <button 
+                            v-if="assessmentResult.status === 'processing'"
+                            @click="checkAssessmentWithPath(assessmentResult.assessment_id, 1)"
+                            class="mt-3 px-4 py-2 bg-white bg-opacity-20 hover:bg-opacity-30 rounded-lg text-sm transition">
+                            <i class="fas fa-sync mr-2"></i>手动刷新状态
+                        </button>
                     </div>
 
                     <div class="p-8">
@@ -814,18 +1115,180 @@
                                 <div class="text-center bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg">
                                     <div class="text-3xl font-bold text-blue-600">{{ assessmentResult.overall_score.toFixed(1) }}</div>
                                     <div class="text-gray-600 font-semibold">总分</div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                        <div class="bg-blue-500 h-2 rounded-full" :style="{width: assessmentResult.overall_score + '%'}"></div>
+                                    </div>
                                 </div>
                                 <div class="text-center bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg">
-                                    <div class="text-2xl font-bold text-purple-600">{{ assessmentResult.breakdown?.idea || 0 }}</div>
-                                    <div class="text-gray-600 font-semibold">创意</div>
+                                    <div class="text-2xl font-bold text-purple-600">{{ (assessmentResult.breakdown?.idea || 0).toFixed(1) }}</div>
+                                    <div class="text-gray-600 font-semibold">创意想法 (30%)</div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                        <div class="bg-purple-500 h-2 rounded-full" :style="{width: (assessmentResult.breakdown?.idea || 0) + '%'}"></div>
+                                    </div>
                                 </div>
                                 <div class="text-center bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg">
-                                    <div class="text-2xl font-bold text-green-600">{{ assessmentResult.breakdown?.ui || 0 }}</div>
-                                    <div class="text-gray-600 font-semibold">UI</div>
+                                    <div class="text-2xl font-bold text-green-600">{{ (assessmentResult.breakdown?.ui || 0).toFixed(1) }}</div>
+                                    <div class="text-gray-600 font-semibold">UI设计 (30%)</div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                        <div class="bg-green-500 h-2 rounded-full" :style="{width: (assessmentResult.breakdown?.ui || 0) + '%'}"></div>
+                                    </div>
                                 </div>
                                 <div class="text-center bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg">
-                                    <div class="text-2xl font-bold text-orange-600">{{ assessmentResult.breakdown?.code || 0 }}</div>
-                                    <div class="text-gray-600 font-semibold">代码</div>
+                                    <div class="text-2xl font-bold text-orange-600">{{ (assessmentResult.breakdown?.code || 0).toFixed(1) }}</div>
+                                    <div class="text-gray-600 font-semibold">代码质量 (40%)</div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                        <div class="bg-orange-500 h-2 rounded-full" :style="{width: (assessmentResult.breakdown?.code || 0) + '%'}"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 详细子维度评分 -->
+                        <div v-if="assessmentResult.breakdown && (assessmentResult.breakdown.idea_detail || assessmentResult.breakdown.ui_detail || assessmentResult.breakdown.code_detail)" class="mb-8">
+                            <h4 class="text-xl font-semibold mb-6 text-gray-800">详细子维度评分</h4>
+                            
+                            <!-- 创意详细评分 -->
+                            <div v-if="assessmentResult.breakdown.idea_detail" class="mb-6">
+                                <h5 class="text-lg font-semibold text-purple-600 mb-3">🧠 创意想法详细评分</h5>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="bg-purple-50 p-4 rounded-lg">
+                                        <div class="text-2xl font-bold text-purple-600">{{ assessmentResult.breakdown.idea_detail.innovation || 0 }}</div>
+                                        <div class="text-sm text-gray-600">创新性</div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1 mt-1">
+                                            <div class="bg-purple-500 h-1 rounded-full" :style="{width: (assessmentResult.breakdown.idea_detail.innovation || 0) + '%'}"></div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-purple-50 p-4 rounded-lg">
+                                        <div class="text-2xl font-bold text-purple-600">{{ assessmentResult.breakdown.idea_detail.feasibility || 0 }}</div>
+                                        <div class="text-sm text-gray-600">可行性</div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1 mt-1">
+                                            <div class="bg-purple-500 h-1 rounded-full" :style="{width: (assessmentResult.breakdown.idea_detail.feasibility || 0) + '%'}"></div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-purple-50 p-4 rounded-lg">
+                                        <div class="text-2xl font-bold text-purple-600">{{ assessmentResult.breakdown.idea_detail.learning_value || 0 }}</div>
+                                        <div class="text-sm text-gray-600">学习价值</div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1 mt-1">
+                                            <div class="bg-purple-500 h-1 rounded-full" :style="{width: (assessmentResult.breakdown.idea_detail.learning_value || 0) + '%'}"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- UI详细评分 -->
+                            <div v-if="assessmentResult.breakdown.ui_detail" class="mb-6">
+                                <h5 class="text-lg font-semibold text-green-600 mb-3">🎨 UI设计详细评分</h5>
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="bg-green-50 p-4 rounded-lg">
+                                        <div class="text-2xl font-bold text-green-600">{{ assessmentResult.breakdown.ui_detail.compliance || 0 }}</div>
+                                        <div class="text-sm text-gray-600">规范性</div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1 mt-1">
+                                            <div class="bg-green-500 h-1 rounded-full" :style="{width: (assessmentResult.breakdown.ui_detail.compliance || 0) + '%'}"></div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-green-50 p-4 rounded-lg">
+                                        <div class="text-2xl font-bold text-green-600">{{ assessmentResult.breakdown.ui_detail.usability || 0 }}</div>
+                                        <div class="text-sm text-gray-600">可用性</div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1 mt-1">
+                                            <div class="bg-green-500 h-1 rounded-full" :style="{width: (assessmentResult.breakdown.ui_detail.usability || 0) + '%'}"></div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-green-50 p-4 rounded-lg">
+                                        <div class="text-2xl font-bold text-green-600">{{ assessmentResult.breakdown.ui_detail.information_arch || 0 }}</div>
+                                        <div class="text-sm text-gray-600">信息架构</div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1 mt-1">
+                                            <div class="bg-green-500 h-1 rounded-full" :style="{width: (assessmentResult.breakdown.ui_detail.information_arch || 0) + '%'}"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- 代码详细评分 -->
+                            <div v-if="assessmentResult.breakdown.code_detail" class="mb-6">
+                                <h5 class="text-lg font-semibold text-orange-600 mb-3">💻 代码质量详细评分</h5>
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div class="bg-orange-50 p-4 rounded-lg">
+                                        <div class="text-2xl font-bold text-orange-600">{{ assessmentResult.breakdown.code_detail.correctness || 0 }}</div>
+                                        <div class="text-sm text-gray-600">正确性</div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1 mt-1">
+                                            <div class="bg-orange-500 h-1 rounded-full" :style="{width: (assessmentResult.breakdown.code_detail.correctness || 0) + '%'}"></div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-orange-50 p-4 rounded-lg">
+                                        <div class="text-2xl font-bold text-orange-600">{{ assessmentResult.breakdown.code_detail.readability || 0 }}</div>
+                                        <div class="text-sm text-gray-600">可读性</div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1 mt-1">
+                                            <div class="bg-orange-500 h-1 rounded-full" :style="{width: (assessmentResult.breakdown.code_detail.readability || 0) + '%'}"></div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-orange-50 p-4 rounded-lg">
+                                        <div class="text-2xl font-bold text-orange-600">{{ assessmentResult.breakdown.code_detail.architecture || 0 }}</div>
+                                        <div class="text-sm text-gray-600">架构设计</div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1 mt-1">
+                                            <div class="bg-orange-500 h-1 rounded-full" :style="{width: (assessmentResult.breakdown.code_detail.architecture || 0) + '%'}"></div>
+                                        </div>
+                                    </div>
+                                    <div class="bg-orange-50 p-4 rounded-lg">
+                                        <div class="text-2xl font-bold text-orange-600">{{ assessmentResult.breakdown.code_detail.performance || 0 }}</div>
+                                        <div class="text-sm text-gray-600">性能</div>
+                                        <div class="w-full bg-gray-200 rounded-full h-1 mt-1">
+                                            <div class="bg-orange-500 h-1 rounded-full" :style="{width: (assessmentResult.breakdown.code_detail.performance || 0) + '%'}"></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 改进建议 -->
+                        <div v-if="assessmentResult.diagnosis && assessmentResult.diagnosis.length" class="mb-8">
+                            <h4 class="text-xl font-semibold mb-4 text-gray-800">
+                                <i class="fas fa-lightbulb mr-2 text-yellow-500"></i>改进建议
+                            </h4>
+                            <div class="space-y-4">
+                                <div 
+                                    v-for="(diag, index) in assessmentResult.diagnosis" 
+                                    :key="index"
+                                    class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+                                    <div class="font-semibold text-yellow-800 mb-1">{{ diag.dimension || diag.dim }}</div>
+                                    <div class="text-yellow-700 mb-2">{{ diag.issue }}</div>
+                                    <div class="text-yellow-600 text-sm">
+                                        <strong>建议:</strong> {{ diag.fix }}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 学习资源 -->
+                        <div v-if="assessmentResult.resources && assessmentResult.resources.length" class="mb-8">
+                            <h4 class="text-xl font-semibold mb-4 text-gray-800">
+                                <i class="fas fa-book mr-2 text-green-500"></i>推荐学习资源
+                            </h4>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                <div 
+                                    v-for="(resource, index) in assessmentResult.resources" 
+                                    :key="index"
+                                    class="bg-green-50 text-green-700 px-4 py-2 rounded-lg">
+                                    <i class="fas fa-external-link-alt mr-2"></i>{{ resource }}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 准出规则 -->
+                        <div v-if="assessmentResult.exit_rules" class="mb-6">
+                            <h4 class="text-xl font-semibold mb-4 text-gray-800">
+                                <i class="fas fa-flag mr-2"></i>评估状态
+                            </h4>
+                            <div class="p-4 rounded-lg" :class="assessmentResult.exit_rules.pass_status ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'">
+                                <div class="flex items-center mb-2">
+                                    <i :class="assessmentResult.exit_rules.pass_status ? 'fas fa-check-circle text-green-500' : 'fas fa-times-circle text-red-500'" class="mr-2"></i>
+                                    <span class="font-semibold" :class="assessmentResult.exit_rules.pass_status ? 'text-green-700' : 'text-red-700'">
+                                        {{ assessmentResult.exit_rules.pass_status ? '评估通过' : '需要改进' }}
+                                    </span>
+                                </div>
+                                <div v-if="assessmentResult.exit_rules.remedy && assessmentResult.exit_rules.remedy.length" class="text-sm" :class="assessmentResult.exit_rules.pass_status ? 'text-green-600' : 'text-red-600'">
+                                    <div v-for="(remedy, index) in assessmentResult.exit_rules.remedy" :key="index" class="mt-1">
+                                        • {{ remedy }}
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -902,6 +1365,25 @@
         createApp({
             data() {
                 return {
+                    // 认证相关
+                    isLoggedIn: false,
+                    currentStudent: null,
+                    authToken: null,
+                    showLoginModal: false,
+                    showRegisterModal: false,
+                    loginForm: {
+                        student_id: '',
+                        password: ''
+                    },
+                    registerForm: {
+                        student_id: '',
+                        name: '',
+                        password: '',
+                        confirmPassword: '',
+                        email: ''
+                    },
+                    authError: '',
+                    
                     activeTab: 'diagnostic',
                     loading: false,
                     isDragging: false,
@@ -951,7 +1433,11 @@
                     historyLoading: false,
                     historyFilter: {
                         studentId: ''
-                    }
+                    },
+                    
+                    // 诊断历史数据
+                    diagnosticHistory: [],
+                    diagnosticHistoryLoading: false
                 }
             },
             computed: {
@@ -1235,21 +1721,29 @@
                             formData.append('files', file)
                         })
 
-                        const response = await fetch('/api/assessment/submit', {
+                        const response = await fetch('/api/upload/files', {
                             method: 'POST',
                             body: formData
                         })
 
                         if (response.ok) {
                             const result = await response.json()
-                            this.assessmentResult = result
                             
-                            // 等待评估完成并获取路径推荐
-                            setTimeout(() => {
-                                this.checkAssessmentWithPath(result.assessment_id)
-                            }, 3000)
+                            // 设置初始评估结果（显示处理中状态）
+                            this.assessmentResult = {
+                                assessment_id: result.assessment_id,
+                                status: 'processing',
+                                message: result.message,
+                                submission_id: result.submission_id,
+                                project_path: result.project_path
+                            }
                             
                             this.scrollToResult()
+                            
+                            // 延迟 500ms 开始查询，确保初始状态已渲染
+                            setTimeout(async () => {
+                                await this.checkAssessmentWithPath(result.assessment_id)
+                            }, 500)
                         } else {
                             const error = await response.json()
                             alert('提交失败: ' + (error.detail || '未知错误'))
@@ -1261,25 +1755,43 @@
                     }
                 },
                 
-                async checkAssessmentWithPath(assessmentId) {
+                async checkAssessmentWithPath(assessmentId, maxRetries = 20) {
                     try {
                         const response = await fetch(`/api/assessment/${assessmentId}`)
                         if (response.ok) {
                             const result = await response.json()
+                            
                             if (result.status === 'completed') {
-                                this.assessmentResult = result
-                                
-                                // 模拟路径推荐结果
-                                this.assessmentResult.path_recommendation = {
-                                    decision_type: 'keep',
-                                    channel: 'B',
-                                    next_node_id: 'model_deployment',
-                                    reasoning: '基于您的优秀表现，建议继续在B通道学习下一个节点'
+                                // 评估完成，创建全新对象以触发响应式更新
+                                const newResult = {
+                                    ...result,
+                                    _updateTime: Date.now(), // 添加时间戳确保对象引用变化
+                                    // 确保有路径推荐（如果后端没有返回）
+                                    path_recommendation: result.path_recommendation || {
+                                        decision_type: 'keep',
+                                        channel: 'B',
+                                        next_node_id: 'model_deployment',
+                                        reasoning: '基于您的优秀表现，建议继续在B通道学习下一个节点'
+                                    }
                                 }
+                                
+                                // 更新评估结果
+                                this.assessmentResult = newResult
+                            } else if ((result.status === 'processing' || result.status === 'in_progress') && maxRetries > 0) {
+                                // 仍在处理中，继续轮询
+                                setTimeout(() => {
+                                    this.checkAssessmentWithPath(assessmentId, maxRetries - 1)
+                                }, 2000)
+                            } else if (result.status === 'failed') {
+                                // 评估失败
+                                this.assessmentResult = { ...result }
+                                alert('评估失败: ' + (result.error_message || '未知错误'))
+                            } else if (maxRetries === 0) {
+                                alert('评估处理时间较长，请稍后手动刷新页面查看结果')
                             }
                         }
                     } catch (error) {
-                        console.error('检查评估状态失败:', error)
+                        console.error('检查评估状态异常:', error)
                     }
                 },
                 
@@ -1465,6 +1977,241 @@
                     } catch {
                         return dateTimeStr
                     }
+                },
+                
+                // ============ 认证相关方法 ============
+                
+                async login() {
+                    this.authError = ''
+                    this.loading = true
+                    
+                    try {
+                        const response = await fetch('/api/auth/login', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                student_id: this.loginForm.student_id,
+                                password: this.loginForm.password
+                            })
+                        })
+                        
+                        const data = await response.json()
+                        
+                        if (!response.ok) {
+                            throw new Error(data.detail || '登录失败')
+                        }
+                        
+                        if (data.success) {
+                            // 保存Token和用户信息
+                            this.authToken = data.token
+                            this.currentStudent = data.student
+                            this.isLoggedIn = true
+                            
+                            // 保存到localStorage
+                            localStorage.setItem('authToken', data.token)
+                            localStorage.setItem('currentStudent', JSON.stringify(data.student))
+                            
+                            // 自动填充学生ID
+                            this.diagnosticForm.studentId = data.student.student_id
+                            this.uploadForm.studentId = data.student.student_id
+                            this.historyFilter.studentId = data.student.student_id
+                            
+                            // 关闭模态框
+                            this.showLoginModal = false
+                            
+                            // 加载学生数据
+                            await this.loadStudentData()
+                            
+                            alert('登录成功！')
+                        }
+                    } catch (error) {
+                        console.error('登录失败:', error)
+                        this.authError = error.message || '登录失败，请检查学生ID和密码'
+                    } finally {
+                        this.loading = false
+                    }
+                },
+                
+                async register() {
+                    this.authError = ''
+                    
+                    // 验证密码
+                    if (this.registerForm.password !== this.registerForm.confirmPassword) {
+                        this.authError = '两次输入的密码不一致'
+                        return
+                    }
+                    
+                    if (this.registerForm.password.length < 6) {
+                        this.authError = '密码长度至少6位'
+                        return
+                    }
+                    
+                    this.loading = true
+                    
+                    try {
+                        const response = await fetch('/api/auth/register', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify({
+                                student_id: this.registerForm.student_id,
+                                name: this.registerForm.name,
+                                password: this.registerForm.password,
+                                email: this.registerForm.email || undefined
+                            })
+                        })
+                        
+                        const data = await response.json()
+                        
+                        if (!response.ok) {
+                            throw new Error(data.detail || '注册失败')
+                        }
+                        
+                        if (data.success) {
+                            alert('注册成功！请登录')
+                            // 切换到登录模态框
+                            this.showRegisterModal = false
+                            this.showLoginModal = true
+                            // 预填充学生ID
+                            this.loginForm.student_id = this.registerForm.student_id
+                            this.loginForm.password = ''
+                            // 重置注册表单
+                            this.registerForm = {
+                                student_id: '',
+                                name: '',
+                                password: '',
+                                confirmPassword: '',
+                                email: ''
+                            }
+                        }
+                    } catch (error) {
+                        console.error('注册失败:', error)
+                        this.authError = error.message || '注册失败，请重试'
+                    } finally {
+                        this.loading = false
+                    }
+                },
+                
+                async logout() {
+                    try {
+                        if (this.authToken) {
+                            await fetch('/api/auth/logout', {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${this.authToken}`
+                                }
+                            })
+                        }
+                    } catch (error) {
+                        console.error('登出请求失败:', error)
+                    } finally {
+                        // 清除本地数据
+                        this.isLoggedIn = false
+                        this.currentStudent = null
+                        this.authToken = null
+                        localStorage.removeItem('authToken')
+                        localStorage.removeItem('currentStudent')
+                        
+                        // 重置表单
+                        this.diagnosticForm.studentId = ''
+                        this.uploadForm.studentId = ''
+                        this.historyFilter.studentId = ''
+                        
+                        alert('已登出')
+                    }
+                },
+                
+                async checkLoginStatus() {
+                    // 检查localStorage中的登录状态
+                    const token = localStorage.getItem('authToken')
+                    const studentData = localStorage.getItem('currentStudent')
+                    
+                    if (token && studentData) {
+                        try {
+                            // 验证Token是否有效
+                            const response = await fetch('/api/auth/verify', {
+                                headers: {
+                                    'Authorization': `Bearer ${token}`
+                                }
+                            })
+                            
+                            const data = await response.json()
+                            
+                            if (data.valid) {
+                                this.authToken = token
+                                this.currentStudent = JSON.parse(studentData)
+                                this.isLoggedIn = true
+                                
+                                // 自动填充学生ID
+                                this.diagnosticForm.studentId = this.currentStudent.student_id
+                                this.uploadForm.studentId = this.currentStudent.student_id
+                                this.historyFilter.studentId = this.currentStudent.student_id
+                                
+                                // 加载学生数据
+                                await this.loadStudentData()
+                            } else {
+                                // Token无效，清除
+                                localStorage.removeItem('authToken')
+                                localStorage.removeItem('currentStudent')
+                            }
+                        } catch (error) {
+                            console.error('验证登录状态失败:', error)
+                            localStorage.removeItem('authToken')
+                            localStorage.removeItem('currentStudent')
+                        }
+                    }
+                },
+                
+                async loadStudentData() {
+                    if (!this.authToken) return
+                    
+                    try {
+                        // 加载诊断历史
+                        this.diagnosticHistoryLoading = true
+                        const diagnosticResponse = await fetch('/api/student/diagnostic-history?limit=5', {
+                            headers: {
+                                'Authorization': `Bearer ${this.authToken}`
+                            }
+                        })
+                        
+                        if (diagnosticResponse.ok) {
+                            const diagnosticData = await diagnosticResponse.json()
+                            this.diagnosticHistory = diagnosticData.history || []
+                            console.log('诊断历史已加载:', diagnosticData.count, '条记录')
+                        }
+                        this.diagnosticHistoryLoading = false
+                        
+                        // 加载学习历史
+                        const learningResponse = await fetch('/api/student/learning-history?limit=20', {
+                            headers: {
+                                'Authorization': `Bearer ${this.authToken}`
+                            }
+                        })
+                        
+                        if (learningResponse.ok) {
+                            const learningData = await learningResponse.json()
+                            this.historyData = learningData.records || []
+                            console.log('学习历史已加载:', learningData.count, '条记录')
+                        }
+                    } catch (error) {
+                        console.error('加载学生数据失败:', error)
+                        this.diagnosticHistoryLoading = false
+                    }
+                },
+                
+                getAuthHeaders() {
+                    if (this.authToken) {
+                        return {
+                            'Authorization': `Bearer ${this.authToken}`,
+                            'Content-Type': 'application/json'
+                        }
+                    }
+                    return {
+                        'Content-Type': 'application/json'
+                    }
                 }
             },
             watch: {
@@ -1474,12 +2221,19 @@
                         this.loadHistory()
                     } else if (newTab === 'learning-path' && this.diagnosticForm.studentId) {
                         this.loadStudentProgress()
+                    } else if (newTab === 'profile' && this.isLoggedIn) {
+                        // 切换到个人中心时重新加载诊断历史
+                        this.loadStudentData()
                     }
                 }
             },
             async mounted() {
                 // 页面加载时的初始化逻辑
                 console.log('AI助教评估与个性化学习路径系统已加载')
+                
+                // 检查登录状态
+                await this.checkLoginStatus()
+                
                 // 预加载诊断测试题目
                 await this.loadDiagnosticQuestions()
             }

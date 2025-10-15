@@ -88,6 +88,9 @@ class AssessmentConfig:
 @dataclass
 class PathConfig:
     """学习路径配置"""
+    # 功能开关
+    enable_path_integration: bool = False  # 是否启用学习路径集成功能
+    
     # 通道难度系数
     CHANNEL_DIFFICULTY: Dict[str, float] = None
     
