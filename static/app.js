@@ -500,6 +500,17 @@ createApp({
                     // 重新加载学习进度以获取最新的节点信息
                     await this.loadStudentProgress()
                     
+                    // 检查是否有路径推荐
+                    if (result.path_recommendation) {
+                        // 将推荐信息保存到评估结果中
+                        if (this.assessmentResult) {
+                            this.assessmentResult.path_recommendation = result.path_recommendation
+                        }
+                        
+                        // 应用路径推荐（但不自动切换，让用户选择）
+                        console.log('收到路径推荐:', result.path_recommendation)
+                    }
+                    
                     // 显示成功提示
                     this.showSuccessMessage('恭喜！您已完成当前学习节点，已解锁下一个节点！')
                 } else {
@@ -510,6 +521,161 @@ createApp({
             } catch (error) {
                 console.error('更新学习进度异常:', error)
                 this.showErrorMessage('更新学习进度失败: ' + error.message)
+            }
+        },
+        
+        // 应用路径推荐
+        async applyPathRecommendation(recommendation) {
+            try {
+                console.log('收到路径推荐:', recommendation)
+                
+                const { recommended_channel, next_node_id, decision_type, reasoning } = recommendation
+                
+                // 如果推荐了不同的通道，自动切换
+                if (recommended_channel && this.studentProgress && this.studentProgress.current_channel !== recommended_channel) {
+                    console.log(`系统推荐切换到${recommended_channel}通道`)
+                    
+                    // 调用通道切换API
+                    const studentId = this.currentStudent?.student_id || this.diagnosticForm.studentId
+                    const response = await fetch('/api/learning-path/channel/switch', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            student_id: studentId,
+                            node_id: this.studentProgress.current_node_id,
+                            channel: recommended_channel
+                        })
+                    })
+                    
+                    if (response.ok) {
+                        const result = await response.json()
+                        console.log('通道切换成功:', result)
+                        
+                        // 重新加载学习进度
+                        await this.loadStudentProgress()
+                        
+                        // 显示推荐信息
+                        this.showRecommendationMessage(recommendation)
+                    } else {
+                        console.warn('通道切换失败，但推荐信息已显示')
+                        this.showRecommendationMessage(recommendation)
+                    }
+                } else {
+                    // 直接显示推荐信息
+                    this.showRecommendationMessage(recommendation)
+                }
+            } catch (error) {
+                console.error('应用路径推荐失败:', error)
+                this.showErrorMessage('应用学习推荐失败: ' + error.message)
+            }
+        },
+        
+        // 显示推荐信息
+        showRecommendationMessage(recommendation) {
+            const { recommended_channel, decision_type, reasoning } = recommendation
+            
+            // 创建推荐信息弹窗
+            const modal = document.createElement('div')
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50'
+            modal.innerHTML = `
+                <div class="bg-white rounded-lg p-6 max-w-md mx-4">
+                    <div class="flex items-center mb-4">
+                        <i class="fas fa-lightbulb text-yellow-500 text-2xl mr-3"></i>
+                        <h3 class="text-xl font-semibold text-gray-800">学习路径推荐</h3>
+                    </div>
+                    <div class="mb-4">
+                        <p class="text-gray-700 mb-2"><strong>推荐通道：</strong>${recommended_channel}通道</p>
+                        <p class="text-gray-700 mb-2"><strong>推荐类型：</strong>${this.getDecisionTypeText(decision_type)}</p>
+                        <p class="text-gray-600 text-sm">${reasoning}</p>
+                    </div>
+                    <div class="flex justify-end">
+                        <button onclick="this.closest('.fixed').remove()" 
+                                class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition">
+                            知道了
+                        </button>
+                    </div>
+                </div>
+            `
+            
+            document.body.appendChild(modal)
+            
+            // 5秒后自动关闭
+            setTimeout(() => {
+                if (modal.parentNode) {
+                    modal.remove()
+                }
+            }, 10000)
+        },
+        
+        // 获取决策类型文本
+        getDecisionTypeText(decisionType) {
+            const typeMap = {
+                'keep': '保持当前通道',
+                'upgrade': '升级到更高难度',
+                'downgrade': '降级到基础难度',
+                'downgrade_with_scaffold': '降级并提供辅导'
+            }
+            return typeMap[decisionType] || decisionType
+        },
+        
+        // 获取决策类型显示文本（用于HTML显示）
+        getDecisionText(decisionType) {
+            return this.getDecisionTypeText(decisionType)
+        },
+        
+        // 获取决策类型样式类
+        getDecisionClass(decisionType) {
+            const classMap = {
+                'keep': 'text-blue-600 font-medium',
+                'upgrade': 'text-green-600 font-medium',
+                'downgrade': 'text-orange-600 font-medium',
+                'downgrade_with_scaffold': 'text-red-600 font-medium'
+            }
+            return classMap[decisionType] || 'text-gray-600 font-medium'
+        },
+        
+        // 获取通道样式类
+        getChannelClass(channel) {
+            const classMap = {
+                'A': 'text-green-600 font-medium',
+                'B': 'text-blue-600 font-medium',
+                'C': 'text-purple-600 font-medium'
+            }
+            return classMap[channel] || 'text-gray-600 font-medium'
+        },
+        
+        // 获取节点名称
+        getNodeName(nodeId) {
+            const nodeNames = {
+                'api_calling': 'API调用',
+                'model_deployment': '模型部署',
+                'no_code_ai': '零代码AI',
+                'rag_system': 'RAG系统',
+                'ui_design': 'UI设计',
+                'frontend_dev': '前端开发',
+                'backend_dev': '后端开发'
+            }
+            return nodeNames[nodeId] || nodeId
+        },
+        
+        // 接受路径推荐
+        async acceptPathRecommendation() {
+            if (!this.assessmentResult.path_recommendation) return
+            
+            try {
+                const recommendation = this.assessmentResult.path_recommendation
+                await this.applyPathRecommendation(recommendation)
+                
+                // 显示成功提示
+                this.showSuccessMessage('已接受路径推荐，学习路径已更新！')
+                
+                // 切换到学习路径标签页
+                this.viewLearningPath()
+            } catch (error) {
+                console.error('接受路径推荐失败:', error)
+                this.showErrorMessage('接受路径推荐失败: ' + error.message)
             }
         },
         
@@ -576,14 +742,7 @@ createApp({
                         // 评估完成，创建全新对象以触发响应式更新
                         const newResult = {
                             ...result,
-                            _updateTime: Date.now(), // 添加时间戳确保对象引用变化
-                            // 确保有路径推荐（如果后端没有返回）
-                            path_recommendation: result.path_recommendation || {
-                                decision_type: 'keep',
-                                channel: 'B',
-                                next_node_id: 'model_deployment',
-                                reasoning: '基于您的优秀表现，建议继续在B通道学习下一个节点'
-                            }
+                            _updateTime: Date.now() // 添加时间戳确保对象引用变化
                         }
                         
                         // 更新评估结果
