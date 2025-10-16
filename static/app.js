@@ -274,6 +274,8 @@ createApp({
                     console.log('学习路径创建成功:', pathData)
                     // 刷新学习路径显示
                     await this.loadStudentProgress()
+                } else {
+                    console.error('创建学习路径失败:', response.status, await response.text())
                 }
             } catch (error) {
                 console.error('创建学习路径失败:', error)

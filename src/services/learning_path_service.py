@@ -6,6 +6,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
 import uuid
 import json
+from pathlib import Path
 
 from ..storage.file_storage import get_storage
 from ..models.learning_path import (
@@ -30,6 +31,7 @@ class LearningPathService:
             self.learning_paths = {}
             self.student_progresses = {}
             self._init_default_course_path()
+            self._load_student_progresses()
             logger.info(f"📚 LearningPathService 已初始化")
     
     def _init_default_course_path(self):
@@ -450,6 +452,9 @@ class LearningPathService:
         # 存储进度
         self.student_progresses[student_id] = progress
         
+        # 持久化保存
+        self._save_student_progresses()
+        
         logger.info(f"📚 学生学习路径已初始化: {student_id}, 起始通道: {initial_channel.value}")
         return progress
     
@@ -713,10 +718,16 @@ class LearningPathService:
             else:
                 progress.frustration_level = max(0.0, progress.frustration_level - 0.05)
         
+        # 持久化保存更新后的进度
+        self._save_student_progresses()
+        
         logger.info(f"📚 学生进度已更新: {student_id}, 节点: {node_id}, 状态: {status.value}")
     
     def get_student_progress(self, student_id: str) -> Optional[StudentPathProgress]:
         """获取学生学习进度"""
+        # 如果内存中没有数据，尝试重新加载
+        if not self.student_progresses:
+            self._load_student_progresses()
         return self.student_progresses.get(student_id)
     
     def get_learning_path(self, path_id: str = "default_course_path") -> Optional[LearningPath]:
@@ -737,6 +748,102 @@ class LearningPathService:
                 "outcomes": path.learning_outcomes
             })
         return paths
+    
+    def _load_student_progresses(self):
+        """从文件加载学生学习进度"""
+        try:
+            progress_file = Path("data/students/learning_progresses.json")
+            if progress_file.exists():
+                with open(progress_file, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                
+                # 反序列化学习进度数据
+                for student_id, progress_data in data.items():
+                    progress = self._deserialize_progress(progress_data)
+                    if progress:
+                        self.student_progresses[student_id] = progress
+                
+                logger.info(f"📚 加载了 {len(self.student_progresses)} 个学生的学习进度")
+            else:
+                logger.info("📚 学习进度文件不存在，使用空进度")
+        except Exception as e:
+            logger.error(f"📚 加载学习进度失败: {str(e)}")
+            self.student_progresses = {}
+    
+    def _save_student_progresses(self):
+        """保存学生学习进度到文件"""
+        try:
+            # 确保目录存在
+            progress_dir = Path("data/students")
+            progress_dir.mkdir(parents=True, exist_ok=True)
+            
+            progress_file = progress_dir / "learning_progresses.json"
+            
+            # 序列化学习进度数据
+            serialized_data = {}
+            for student_id, progress in self.student_progresses.items():
+                serialized_data[student_id] = self._serialize_progress(progress)
+            
+            # 保存到文件
+            with open(progress_file, 'w', encoding='utf-8') as f:
+                json.dump(serialized_data, f, ensure_ascii=False, indent=2)
+            
+            logger.info(f"📚 保存了 {len(self.student_progresses)} 个学生的学习进度")
+        except Exception as e:
+            logger.error(f"📚 保存学习进度失败: {str(e)}")
+    
+    def _serialize_progress(self, progress: StudentPathProgress) -> Dict[str, Any]:
+        """序列化学习进度对象"""
+        try:
+            data = {
+                "student_id": progress.student_id,
+                "current_node_id": progress.current_node_id,
+                "current_channel": progress.current_channel.value,
+                "node_statuses": {k: v.value for k, v in progress.node_statuses.items()},
+                "completed_nodes": progress.completed_nodes,
+                "mastery_scores": progress.mastery_scores,
+                "frustration_level": progress.frustration_level,
+                "retry_counts": progress.retry_counts,
+                "total_study_hours": progress.total_study_hours,
+                "started_at": progress.started_at.isoformat(),
+                "last_activity_at": progress.last_activity_at.isoformat(),
+                "updated_at": progress.updated_at.isoformat() if progress.updated_at else None
+            }
+            return data
+        except Exception as e:
+            logger.error(f"📚 序列化学习进度失败: {str(e)}")
+            return {}
+    
+    def _deserialize_progress(self, data: Dict[str, Any]) -> Optional[StudentPathProgress]:
+        """反序列化学习进度对象"""
+        try:
+            # 转换枚举值
+            current_channel = Channel(data["current_channel"])
+            node_statuses = {k: NodeStatus(v) for k, v in data["node_statuses"].items()}
+            
+            # 转换时间字段
+            started_at = datetime.fromisoformat(data["started_at"])
+            last_activity_at = datetime.fromisoformat(data["last_activity_at"])
+            updated_at = datetime.fromisoformat(data["updated_at"]) if data.get("updated_at") else None
+            
+            progress = StudentPathProgress(
+                student_id=data["student_id"],
+                current_node_id=data["current_node_id"],
+                current_channel=current_channel,
+                node_statuses=node_statuses,
+                completed_nodes=data["completed_nodes"],
+                mastery_scores=data["mastery_scores"],
+                frustration_level=data["frustration_level"],
+                retry_counts=data["retry_counts"],
+                total_study_hours=data["total_study_hours"],
+                started_at=started_at,
+                last_activity_at=last_activity_at,
+                updated_at=updated_at
+            )
+            return progress
+        except Exception as e:
+            logger.error(f"📚 反序列化学习进度失败: {str(e)}")
+            return None
 
 
 class LearningPathServiceError(Exception):

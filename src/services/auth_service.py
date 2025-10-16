@@ -1,6 +1,7 @@
 """学生认证服务"""
 
 import logging
+import warnings
 from passlib.context import CryptContext
 from jose import jwt, JWTError
 from datetime import datetime, timedelta
@@ -36,8 +37,10 @@ class AuthService:
         self.storage_path = Path(storage_path)
         self.storage_path.mkdir(parents=True, exist_ok=True)
         
-        # 密码加密上下文
-        self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        # 密码加密上下文 - 抑制bcrypt版本警告
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*bcrypt.*")
+            self.pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto", bcrypt__default_rounds=12)
         
         # JWT配置
         self.jwt_secret = os.getenv("JWT_SECRET", "your-secret-key-change-in-production-2025")
