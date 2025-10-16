@@ -58,6 +58,7 @@ createApp({
             currentTask: null,
             learningNodes: [],
             latestRecommendation: null,
+            selectedChannel: 'B', // 默认选中B通道
             
             // 作业提交数据
             uploadForm: {
@@ -306,13 +307,19 @@ createApp({
         
         // ================ 学习路径方法 ================
         async loadStudentProgress() {
-            if (!this.diagnosticForm.studentId) return
+            // 获取学生ID，优先使用当前登录用户，否则使用诊断表单中的ID
+            const studentId = this.currentStudent?.student_id || this.diagnosticForm.studentId
+            if (!studentId) return
             
             try {
-                const response = await fetch(`/api/learning-path/progress/${this.diagnosticForm.studentId}`)
+                const response = await fetch(`/api/learning-path/progress/${studentId}`)
                 if (response.ok) {
                     const data = await response.json()
-                    this.studentProgress = data.progress_summary
+                    this.studentProgress = {
+                        ...data.progress_summary,
+                        current_node_id: data.current_status.current_node_id,
+                        current_channel: data.current_status.current_channel
+                    }
                     this.currentTask = data.current_task
                     await this.loadLearningPath()
                 }
@@ -342,6 +349,115 @@ createApp({
             // 这里实现接受路径推荐的逻辑
             alert('路径推荐已应用到您的学习计划中！')
             this.viewLearningPath()
+        },
+        
+        // 开始当前任务 - 跳转到作业提交页面
+        startCurrentTask() {
+            if (!this.currentTask) return
+            
+            // 切换到作业提交页面
+            this.activeTab = 'upload'
+            
+            // 预填充任务相关信息
+            this.uploadForm.ideaText = `我正在完成【${this.currentTask.node_name}】的${this.currentTask.channel}通道任务：\n\n${this.currentTask.task_description}\n\n任务要求：\n${this.currentTask.requirements.map(req => `• ${req}`).join('\n')}\n\n提交要求：\n${this.currentTask.deliverables.map(del => `• ${del}`).join('\n')}`
+            
+            // 滚动到页面顶部
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+            
+            // 显示提示信息
+            setTimeout(() => {
+                alert('已跳转到作业提交页面，请上传您的作品文件')
+            }, 500)
+        },
+        
+        // 切换当前任务的通道难度
+        async switchCurrentTaskChannel(channel) {
+            if (!this.currentTask || !this.studentProgress) return
+            
+            // 如果已经是当前通道，不需要切换
+            if (this.currentTask.channel === channel) return
+            
+            // 获取学生ID，优先使用当前登录用户，否则使用诊断表单中的ID
+            const studentId = this.currentStudent?.student_id || this.diagnosticForm.studentId
+            if (!studentId) {
+                this.showErrorMessage('请先登录或完成诊断测试')
+                return
+            }
+            
+            try {
+                // 调用后端API切换通道
+                const response = await fetch('/api/learning-path/channel/switch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        student_id: studentId,
+                        node_id: this.studentProgress.current_node_id,
+                        channel: channel
+                    })
+                })
+                
+                if (response.ok) {
+                    const result = await response.json()
+                    console.log('当前任务通道切换成功:', result)
+                    
+                    // 更新当前任务信息
+                    if (result.current_task) {
+                        this.currentTask = result.current_task
+                    }
+                    
+                    // 重新加载学习进度以保持数据同步
+                    await this.loadStudentProgress()
+                    
+                    // 显示成功提示
+                    this.showSuccessMessage(`已切换到${channel}通道！`)
+                } else {
+                    const error = await response.json()
+                    this.showErrorMessage('切换通道失败: ' + (error.detail || '未知错误'))
+                }
+            } catch (error) {
+                console.error('切换当前任务通道失败:', error)
+                this.showErrorMessage('切换通道失败: ' + error.message)
+            }
+        },
+        
+        // 显示成功消息
+        showSuccessMessage(message) {
+            // 创建临时提示元素
+            const toast = document.createElement('div')
+            toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300'
+            toast.textContent = message
+            document.body.appendChild(toast)
+            
+            // 3秒后自动移除
+            setTimeout(() => {
+                toast.style.opacity = '0'
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast)
+                    }
+                }, 300)
+            }, 3000)
+        },
+        
+        // 显示错误消息
+        showErrorMessage(message) {
+            // 创建临时提示元素
+            const toast = document.createElement('div')
+            toast.className = 'fixed top-4 right-4 bg-red-500 text-white px-6 py-3 rounded-lg shadow-lg z-50 transition-all duration-300'
+            toast.textContent = message
+            document.body.appendChild(toast)
+            
+            // 5秒后自动移除
+            setTimeout(() => {
+                toast.style.opacity = '0'
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast)
+                    }
+                }, 300)
+            }, 5000)
         },
         
         // ================ 作业提交方法 ================
@@ -584,6 +700,94 @@ createApp({
                 'backend_dev': '后端开发'
             }
             return nodeNames[nodeId] || nodeId
+        },
+        
+        // 获取通道任务信息
+        getChannelTask(node, channel) {
+            if (!node.channels || !node.channels[channel]) {
+                return { task: '任务信息不可用' }
+            }
+            return node.channels[channel]
+        },
+        
+        // 获取通道预估时间
+        getChannelHours(node, channel) {
+            if (!node.channels || !node.channels[channel]) {
+                return 0
+            }
+            return node.channels[channel].estimated_hours || 0
+        },
+        
+        // 获取通道难度
+        getChannelDifficulty(node, channel) {
+            if (!node.channels || !node.channels[channel]) {
+                return 0
+            }
+            return node.channels[channel].difficulty || 0
+        },
+        
+        // 判断是否为当前节点
+        isCurrentNode(node) {
+            return this.studentProgress && this.studentProgress.current_node_id === node.id
+        },
+        
+        // 获取当前通道
+        getCurrentChannel(node) {
+            if (!this.studentProgress || this.studentProgress.current_node_id !== node.id) {
+                return null
+            }
+            return this.studentProgress.current_channel
+        },
+        
+        // 获取通道按钮样式
+        getChannelButtonClass(channel) {
+            const classMap = {
+                'A': 'bg-green-500 text-white',
+                'B': 'bg-blue-500 text-white',
+                'C': 'bg-purple-500 text-white'
+            }
+            return classMap[channel] || 'bg-gray-500 text-white'
+        },
+        
+        // 切换通道
+        async switchToChannel(nodeId, channel) {
+            // 获取学生ID，优先使用当前登录用户，否则使用诊断表单中的ID
+            const studentId = this.currentStudent?.student_id || this.diagnosticForm.studentId
+            if (!studentId) {
+                this.showErrorMessage('请先登录或完成诊断测试')
+                return
+            }
+            
+            try {
+                // 调用后端API切换通道
+                const response = await fetch('/api/learning-path/channel/switch', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        student_id: studentId,
+                        node_id: nodeId,
+                        channel: channel
+                    })
+                })
+                
+                if (response.ok) {
+                    const result = await response.json()
+                    console.log('通道切换成功:', result)
+                    
+                    // 重新加载学习进度
+                    await this.loadStudentProgress()
+                    
+                    alert(`已切换到${channel}通道！`)
+                } else {
+                    const error = await response.json()
+                    alert('切换通道失败: ' + (error.detail || '未知错误'))
+                }
+            } catch (error) {
+                console.error('切换通道失败:', error)
+                alert('切换通道失败: ' + error.message)
+            }
         },
         
         getStatusText(status) {

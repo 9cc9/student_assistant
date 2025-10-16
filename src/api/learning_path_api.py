@@ -118,11 +118,15 @@ async def get_student_progress(student_id: str) -> JSONResponse:
     返回学生当前的学习状态、完成情况和下一步建议
     """
     try:
-        logger.info(f"📚 查询学生进度: {student_id}")
+        logger.info(f"📚 收到学习进度查询请求: student_id={student_id}")
         
         progress = path_service.get_student_progress(student_id)
         if not progress:
-            raise HTTPException(status_code=404, detail=f"学生学习进度不存在: {student_id}")
+            error_msg = f"学生学习进度不存在: {student_id}"
+            logger.error(f"📚 ❌ {error_msg}")
+            raise HTTPException(status_code=404, detail=error_msg)
+        
+        logger.info(f"📚 学生进度查询成功: 当前节点={progress.current_node_id}, 当前通道={progress.current_channel.value}")
         
         # 获取学习路径信息
         learning_path = path_service.get_learning_path()
@@ -532,6 +536,120 @@ async def get_path_statistics() -> JSONResponse:
 
 
 # 用于健康检查的简单接口
+async def switch_student_channel(
+    request_data: Dict[str, Any] = Body(
+        ...,
+        example={
+            "student_id": "s_20250101",
+            "node_id": "api_calling",
+            "channel": "C"
+        }
+    )
+) -> JSONResponse:
+    """
+    切换学生学习通道
+    
+    允许学生在当前学习节点切换A/B/C通道的难度等级
+    """
+    try:
+        # 详细记录接收到的请求数据
+        logger.info(f"📚 收到通道切换请求: {request_data}")
+        
+        student_id = request_data.get("student_id")
+        node_id = request_data.get("node_id")
+        channel_str = request_data.get("channel")
+        
+        # 记录解析后的参数
+        logger.info(f"📚 解析参数 - student_id: {student_id}, node_id: {node_id}, channel: {channel_str}")
+        
+        # 检查必要参数
+        missing_params = []
+        if not student_id:
+            missing_params.append("student_id")
+        if not node_id:
+            missing_params.append("node_id")
+        if not channel_str:
+            missing_params.append("channel")
+            
+        if missing_params:
+            error_msg = f"缺少必要参数: {', '.join(missing_params)}"
+            logger.error(f"📚 ❌ 参数验证失败: {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        # 验证通道值
+        try:
+            channel = Channel(channel_str)
+            logger.info(f"📚 通道值验证成功: {channel_str} -> {channel.value}")
+        except ValueError as e:
+            error_msg = f"无效的通道值: {channel_str}，有效值为: A, B, C"
+            logger.error(f"📚 ❌ 通道值验证失败: {error_msg}, 错误: {str(e)}")
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        logger.info(f"📚 开始切换学生通道: {student_id} -> {node_id} -> {channel.value}")
+        
+        # 获取学生进度
+        logger.info(f"📚 查询学生学习进度: {student_id}")
+        progress = path_service.get_student_progress(student_id)
+        if not progress:
+            error_msg = f"学生学习进度不存在: {student_id}"
+            logger.error(f"📚 ❌ {error_msg}")
+            raise HTTPException(status_code=404, detail=error_msg)
+        
+        logger.info(f"📚 学生进度查询成功: 当前节点={progress.current_node_id}, 当前通道={progress.current_channel.value}")
+        
+        # 验证是否为当前节点
+        if progress.current_node_id != node_id:
+            error_msg = f"只能切换当前学习节点({progress.current_node_id})的通道，请求的节点: {node_id}"
+            logger.error(f"📚 ❌ 节点验证失败: {error_msg}")
+            raise HTTPException(status_code=400, detail=error_msg)
+        
+        # 切换通道
+        logger.info(f"📚 开始更新学生通道: {progress.current_channel.value} -> {channel.value}")
+        progress.current_channel = channel
+        progress.last_activity_at = datetime.now()
+        progress.updated_at = datetime.now()
+        
+        # 保存更新
+        logger.info(f"📚 保存学生进度更新")
+        path_service._save_student_progresses()
+        
+        # 获取更新后的任务信息
+        logger.info(f"📚 获取更新后的任务信息")
+        learning_path = path_service.get_learning_path()
+        current_node = None
+        for node in learning_path.nodes:
+            if node.id == node_id:
+                current_node = node
+                break
+        
+        if not current_node:
+            logger.warning(f"📚 ⚠️ 未找到节点信息: {node_id}")
+        
+        current_task = _get_current_task_info(current_node, channel) if current_node else None
+        
+        response_data = {
+            "student_id": student_id,
+            "node_id": node_id,
+            "channel": channel.value,
+            "switch_successful": True,
+            "current_task": current_task,
+            "updated_at": progress.updated_at.isoformat()
+        }
+        
+        logger.info(f"📚 ✅ 学生通道切换成功: {student_id} -> {channel.value}")
+        logger.info(f"📚 响应数据: {response_data}")
+        return JSONResponse(content=response_data)
+        
+    except HTTPException:
+        raise
+    except LearningPathServiceError as e:
+        logger.error(f"📚 ❌ 切换通道失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"📚 ❌ 切换通道异常: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"切换通道失败: {str(e)}")
+
+
 async def learning_path_health_check() -> JSONResponse:
     """学习路径系统健康检查"""
     try:

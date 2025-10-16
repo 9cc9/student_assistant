@@ -24,6 +24,7 @@ from .learning_path_api import (
     get_learning_path_info,
     get_available_paths,
     get_path_statistics,
+    switch_student_channel,
     learning_path_health_check
 )
 from .diagnostic_api import (
@@ -62,6 +63,7 @@ learning_path_router.post("/diagnostic")(submit_diagnostic_assessment)
 learning_path_router.get("/progress/{student_id}")(get_student_progress)
 learning_path_router.get("/recommendation/{student_id}")(request_path_recommendation)
 learning_path_router.post("/progress/update")(update_node_progress)
+learning_path_router.post("/channel/switch")(switch_student_channel)
 learning_path_router.get("/path/info")(get_learning_path_info)
 learning_path_router.get("/paths")(get_available_paths)
 learning_path_router.get("/statistics")(get_path_statistics)
