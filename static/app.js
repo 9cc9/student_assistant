@@ -460,6 +460,59 @@ createApp({
             }, 5000)
         },
         
+        // 更新学习路径进度
+        async updateLearningProgress(assessmentResult) {
+            if (!this.studentProgress || !this.studentProgress.current_node_id) {
+                console.warn('无法更新学习进度：缺少当前节点信息')
+                return
+            }
+            
+            try {
+                // 获取学生ID
+                const studentId = this.currentStudent?.student_id || this.diagnosticForm.studentId
+                if (!studentId) {
+                    console.warn('无法更新学习进度：缺少学生ID')
+                    return
+                }
+                
+                // 调用学习路径更新API
+                const response = await fetch('/api/learning-path/progress/update', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        student_id: studentId,
+                        node_id: this.studentProgress.current_node_id,
+                        status: 'completed',
+                        assessment_result: {
+                            overall_score: assessmentResult.overall_score || 0,
+                            detailed_scores: assessmentResult.detailed_scores || {},
+                            feedback: assessmentResult.feedback || ''
+                        }
+                    })
+                })
+                
+                if (response.ok) {
+                    const result = await response.json()
+                    console.log('学习进度更新成功:', result)
+                    
+                    // 重新加载学习进度以获取最新的节点信息
+                    await this.loadStudentProgress()
+                    
+                    // 显示成功提示
+                    this.showSuccessMessage('恭喜！您已完成当前学习节点，已解锁下一个节点！')
+                } else {
+                    const error = await response.json()
+                    console.error('学习进度更新失败:', error)
+                    this.showErrorMessage('学习进度更新失败: ' + (error.detail || '未知错误'))
+                }
+            } catch (error) {
+                console.error('更新学习进度异常:', error)
+                this.showErrorMessage('更新学习进度失败: ' + error.message)
+            }
+        },
+        
         // ================ 作业提交方法 ================
         async submitAssignment() {
             if (!this.uploadForm.studentId || !this.uploadForm.ideaText || this.selectedFiles.length === 0) {
@@ -535,6 +588,9 @@ createApp({
                         
                         // 更新评估结果
                         this.assessmentResult = newResult
+                        
+                        // 更新学习路径进度
+                        await this.updateLearningProgress(result)
                     } else if ((result.status === 'processing' || result.status === 'in_progress') && maxRetries > 0) {
                         // 仍在处理中，继续轮询
                         setTimeout(() => {
@@ -671,17 +727,74 @@ createApp({
         
         getNodeClass(node, index) {
             // 根据节点状态返回样式类
-            return 'border-gray-200 bg-white hover:border-blue-300'
+            if (!this.studentProgress) {
+                return 'border-gray-200 bg-gray-50 hover:border-gray-300'
+            }
+            
+            const nodeId = node.id
+            const completedNodes = this.studentProgress.completed_nodes || []
+            const currentNodeId = this.studentProgress.current_node_id
+            
+            // 已完成的节点 - 绿色边框
+            if (completedNodes.includes(nodeId)) {
+                return 'border-green-300 bg-green-50 hover:border-green-400'
+            }
+            
+            // 当前正在学习的节点 - 蓝色边框
+            if (nodeId === currentNodeId) {
+                return 'border-blue-300 bg-blue-50 hover:border-blue-400'
+            }
+            
+            // 未解锁的节点 - 灰色边框
+            return 'border-gray-200 bg-gray-50 hover:border-gray-300'
         },
         
         getNodeIconClass(node, index) {
             // 根据节点状态返回图标样式
-            return 'bg-blue-500'
+            if (!this.studentProgress) {
+                return 'bg-gray-400'
+            }
+            
+            const nodeId = node.id
+            const completedNodes = this.studentProgress.completed_nodes || []
+            const currentNodeId = this.studentProgress.current_node_id
+            
+            // 已完成的节点 - 绿色
+            if (completedNodes.includes(nodeId)) {
+                return 'bg-green-500'
+            }
+            
+            // 当前正在学习的节点 - 蓝色
+            if (nodeId === currentNodeId) {
+                return 'bg-blue-500'
+            }
+            
+            // 未解锁的节点 - 灰色
+            return 'bg-gray-400'
         },
         
         getNodeStatusIcon(node) {
             // 根据节点状态返回状态图标
-            return 'fas fa-clock text-gray-400'
+            if (!this.studentProgress) {
+                return 'fas fa-lock text-gray-400'
+            }
+            
+            const nodeId = node.id
+            const completedNodes = this.studentProgress.completed_nodes || []
+            const currentNodeId = this.studentProgress.current_node_id
+            
+            // 已完成的节点
+            if (completedNodes.includes(nodeId)) {
+                return 'fas fa-check-circle text-green-500'
+            }
+            
+            // 当前正在学习的节点
+            if (nodeId === currentNodeId) {
+                return 'fas fa-play-circle text-blue-500'
+            }
+            
+            // 未解锁的节点
+            return 'fas fa-lock text-gray-400'
         },
         
         getEstimatedHours(node) {

@@ -699,6 +699,13 @@ class LearningPathService:
         if status == NodeStatus.COMPLETED:
             if node_id not in progress.completed_nodes:
                 progress.completed_nodes.append(node_id)
+                
+                # 计算并累加该节点的学习时长
+                estimated_hours = self._get_estimated_hours_for_node(node_id)
+                node_hours = estimated_hours.get(progress.current_channel, 0)
+                progress.total_study_hours += node_hours
+                
+                logger.info(f"📚 节点完成，累计学习时长: {node_id} -> +{node_hours}小时，总计: {progress.total_study_hours}小时")
             
             # 解锁下一个节点
             next_node_id = self._get_next_node(node_id, progress.completed_nodes)
@@ -723,12 +730,41 @@ class LearningPathService:
         
         logger.info(f"📚 学生进度已更新: {student_id}, 节点: {node_id}, 状态: {status.value}")
     
+    def _recalculate_total_study_hours(self, progress: StudentPathProgress) -> None:
+        """重新计算累计学习时长"""
+        total_hours = 0.0
+        
+        for node_id in progress.completed_nodes:
+            # 获取该节点的预估时长
+            estimated_hours = self._get_estimated_hours_for_node(node_id)
+            
+            # 使用当前通道计算时长（如果历史记录中没有通道信息，默认使用B通道）
+            if hasattr(progress, 'node_channels') and progress.node_channels.get(node_id):
+                channel = progress.node_channels[node_id]
+            else:
+                # 如果没有历史通道记录，根据节点完成时间推测使用B通道
+                channel = Channel.B
+            
+            node_hours = estimated_hours.get(channel, estimated_hours.get(Channel.B, 0))
+            total_hours += node_hours
+            
+            logger.debug(f"📚 重新计算: {node_id} ({channel.value}通道) -> {node_hours}小时")
+        
+        progress.total_study_hours = total_hours
+        logger.info(f"📚 重新计算累计学习时长: {total_hours}小时")
+    
     def get_student_progress(self, student_id: str) -> Optional[StudentPathProgress]:
         """获取学生学习进度"""
         # 如果内存中没有数据，尝试重新加载
         if not self.student_progresses:
             self._load_student_progresses()
-        return self.student_progresses.get(student_id)
+        
+        progress = self.student_progresses.get(student_id)
+        if progress and progress.completed_nodes:
+            # 重新计算累计学习时长
+            self._recalculate_total_study_hours(progress)
+            
+        return progress
     
     def get_learning_path(self, path_id: str = "default_course_path") -> Optional[LearningPath]:
         """获取学习路径"""
