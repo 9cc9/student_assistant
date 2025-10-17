@@ -363,11 +363,6 @@ createApp({
             
             // 滚动到页面顶部
             window.scrollTo({ top: 0, behavior: 'smooth' })
-            
-            // 显示提示信息
-            setTimeout(() => {
-                alert('已跳转到作业提交页面，请上传您的作品文件')
-            }, 500)
         },
         
         // 切换当前任务的通道难度

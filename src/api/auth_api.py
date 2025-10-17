@@ -123,6 +123,7 @@ async def login(request_data: LoginRequest, req: Request):
                     "student_id": student.student_id,
                     "name": student.name,
                     "email": student.email,
+                    "created_at": student.created_at.isoformat(),
                     "last_login": student.last_login.isoformat() if student.last_login else None
                 }
             }
