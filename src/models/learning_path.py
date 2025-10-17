@@ -98,6 +98,7 @@ class StudentPathProgress(BaseModel):
     current_channel: Channel = Field(..., description="当前通道")
     node_statuses: Dict[str, NodeStatus] = Field(default_factory=dict, description="节点状态")
     completed_nodes: List[str] = Field(default_factory=list, description="已完成节点")
+    completed_channels: Dict[str, str] = Field(default_factory=dict, description="各节点完成的通道")
     
     # 学习统计
     total_study_hours: float = Field(default=0, description="总学习时长")

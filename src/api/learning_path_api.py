@@ -150,6 +150,7 @@ async def get_student_progress(student_id: str) -> JSONResponse:
             },
             "progress_summary": {
                 "completed_nodes": progress.completed_nodes,
+                "completed_channels": progress.completed_channels,
                 "total_nodes": len(learning_path.nodes),
                 "completion_rate": len(progress.completed_nodes) / len(learning_path.nodes),
                 "total_study_hours": progress.total_study_hours

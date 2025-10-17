@@ -1000,7 +1000,16 @@ createApp({
         
         // 判断是否为当前节点
         isCurrentNode(node) {
-            return this.studentProgress && this.studentProgress.current_node_id === node.id
+            const isCurrent = this.studentProgress && this.studentProgress.current_node_id === node.id
+            console.log(`🔍 isCurrentNode(${node.id}):`, isCurrent, 'current_node_id:', this.studentProgress?.current_node_id)
+            return isCurrent
+        },
+        
+        // 判断是否为已完成的节点
+        isCompletedNode(node) {
+            const isCompleted = this.studentProgress && this.studentProgress.completed_nodes && this.studentProgress.completed_nodes.includes(node.id)
+            console.log(`🔍 isCompletedNode(${node.id}):`, isCompleted, 'completed_nodes:', this.studentProgress?.completed_nodes)
+            return isCompleted
         },
         
         // 获取当前通道
@@ -1009,6 +1018,19 @@ createApp({
                 return null
             }
             return this.studentProgress.current_channel
+        },
+        
+        // 获取已完成的通道
+        getCompletedChannel(node) {
+            if (!this.studentProgress || !this.studentProgress.completed_nodes || !this.studentProgress.completed_nodes.includes(node.id)) {
+                console.log(`🔍 getCompletedChannel(${node.id}): null (node not completed)`)
+                return null
+            }
+            
+            // 从学生进度中获取该节点完成的通道信息
+            const completedChannel = this.studentProgress.completed_channels?.[node.id] || 'B'
+            console.log(`🔍 getCompletedChannel(${node.id}):`, completedChannel, 'completed_channels:', this.studentProgress.completed_channels)
+            return completedChannel
         },
         
         // 获取通道按钮样式

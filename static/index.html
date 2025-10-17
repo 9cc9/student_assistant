@@ -876,11 +876,46 @@
                                     
                                     <p class="text-gray-600 text-sm mb-3 line-clamp-2">{{ node.description }}</p>
                                     
-                                    <!-- 节点通道切换器 -->
-                                    <div class="mb-3">
+                                    <!-- 已完成的节点 - 显示完成的通道，不可切换 -->
+                                    <div v-if="isCompletedNode(node)" class="mb-3">
                                         <div class="flex items-center justify-between mb-2">
-                                            <span class="text-xs text-gray-600 font-medium">选择难度通道：</span>
-                                            <span v-if="getCurrentChannel(node)" class="text-xs text-gray-500">
+                                            <span class="text-xs text-green-600 font-medium">已完成通道：</span>
+                                            <span class="text-xs text-green-600 font-semibold">
+                                                {{ getCompletedChannel(node) }}通道
+                                            </span>
+                                        </div>
+                                        <div class="flex bg-green-100 rounded-lg p-1">
+                                            <div 
+                                                v-for="channel in ['A', 'B', 'C']" 
+                                                :key="channel"
+                                                :class="['px-2 py-1 rounded text-xs font-medium flex-1 text-center', 
+                                                       getCompletedChannel(node) === channel ? getChannelButtonClass(channel) : 'text-gray-400']">
+                                                {{ channel }}通道
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- 显示已完成通道的任务详情 -->
+                                        <div class="mt-3">
+                                            <div class="bg-green-50 p-3 rounded-lg border border-green-200">
+                                                <h6 class="font-semibold text-green-700 text-xs mb-2">
+                                                    <i class="fas fa-check-circle mr-1"></i>{{ getCompletedChannel(node) }}通道任务
+                                                </h6>
+                                                <p class="text-xs text-green-600 mb-2 line-clamp-2">
+                                                    {{ getChannelTask(node, getCompletedChannel(node)).task }}
+                                                </p>
+                                                <div class="flex items-center justify-between text-xs text-green-500">
+                                                    <span><i class="fas fa-clock mr-1"></i>{{ getChannelHours(node, getCompletedChannel(node)) }}h</span>
+                                                    <span><i class="fas fa-signal mr-1"></i>难度{{ getChannelDifficulty(node, getCompletedChannel(node)) }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 当前节点 - 可切换通道 -->
+                                    <div v-else-if="isCurrentNode(node)" class="mb-3">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-xs text-blue-600 font-medium">选择难度通道：</span>
+                                            <span class="text-xs text-blue-600 font-semibold">
                                                 当前: {{ getCurrentChannel(node) }}通道
                                             </span>
                                         </div>
@@ -889,27 +924,43 @@
                                                 v-for="channel in ['A', 'B', 'C']" 
                                                 :key="channel"
                                                 @click="switchCurrentTaskChannel(channel)"
-                                                :disabled="!isCurrentNode(node)"
                                                 :class="['px-2 py-1 rounded text-xs font-medium transition flex-1', 
-                                                       getCurrentChannel(node) === channel ? getChannelButtonClass(channel) : 'text-gray-500 hover:text-gray-700',
-                                                       !isCurrentNode(node) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200']">
+                                                       getCurrentChannel(node) === channel ? getChannelButtonClass(channel) : 'text-gray-500 hover:text-gray-700 hover:bg-gray-200']">
                                                 {{ channel }}通道
                                             </button>
                                         </div>
+                                        
+                                        <!-- 显示当前通道的任务详情 -->
+                                        <div class="mt-3">
+                                            <div class="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                                                <h6 class="font-semibold text-blue-700 text-xs mb-2">
+                                                    <i class="fas fa-play-circle mr-1"></i>{{ getCurrentChannel(node) }}通道任务
+                                                </h6>
+                                                <p class="text-xs text-blue-600 mb-2 line-clamp-2">
+                                                    {{ getChannelTask(node, getCurrentChannel(node)).task }}
+                                                </p>
+                                                <div class="flex items-center justify-between text-xs text-blue-500">
+                                                    <span><i class="fas fa-clock mr-1"></i>{{ getChannelHours(node, getCurrentChannel(node)) }}h</span>
+                                                    <span><i class="fas fa-signal mr-1"></i>难度{{ getChannelDifficulty(node, getCurrentChannel(node)) }}</span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     
-                                    <!-- 显示当前通道的任务详情 -->
-                                    <div v-if="getCurrentChannel(node)" class="mb-3">
-                                        <div class="bg-gray-50 p-3 rounded-lg">
-                                            <h6 class="font-semibold text-gray-700 text-xs mb-2">
-                                                {{ getCurrentChannel(node) }}通道任务
-                                            </h6>
-                                            <p class="text-xs text-gray-600 mb-2 line-clamp-2">
-                                                {{ getChannelTask(node, getCurrentChannel(node)).task }}
-                                            </p>
-                                            <div class="flex items-center justify-between text-xs text-gray-500">
-                                                <span><i class="fas fa-clock mr-1"></i>{{ getChannelHours(node, getCurrentChannel(node)) }}h</span>
-                                                <span><i class="fas fa-signal mr-1"></i>难度{{ getChannelDifficulty(node, getCurrentChannel(node)) }}</span>
+                                    <!-- 未解锁的节点 - 显示所有通道但不可选择 -->
+                                    <div v-else class="mb-3">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-xs text-gray-500 font-medium">难度通道：</span>
+                                            <span class="text-xs text-gray-500">
+                                                <i class="fas fa-lock mr-1"></i>未解锁
+                                            </span>
+                                        </div>
+                                        <div class="flex bg-gray-100 rounded-lg p-1 opacity-50">
+                                            <div 
+                                                v-for="channel in ['A', 'B', 'C']" 
+                                                :key="channel"
+                                                class="px-2 py-1 rounded text-xs font-medium flex-1 text-center text-gray-400">
+                                                {{ channel }}通道
                                             </div>
                                         </div>
                                     </div>

@@ -700,6 +700,9 @@ class LearningPathService:
             if node_id not in progress.completed_nodes:
                 progress.completed_nodes.append(node_id)
                 
+                # 记录完成时使用的通道
+                progress.completed_channels[node_id] = progress.current_channel.value
+                
                 # 计算并累加该节点的学习时长
                 estimated_hours = self._get_estimated_hours_for_node(node_id)
                 node_hours = estimated_hours.get(progress.current_channel, 0)
@@ -837,6 +840,7 @@ class LearningPathService:
                 "current_channel": progress.current_channel.value,
                 "node_statuses": {k: v.value for k, v in progress.node_statuses.items()},
                 "completed_nodes": progress.completed_nodes,
+                "completed_channels": progress.completed_channels,
                 "mastery_scores": progress.mastery_scores,
                 "frustration_level": progress.frustration_level,
                 "retry_counts": progress.retry_counts,
@@ -868,6 +872,7 @@ class LearningPathService:
                 current_channel=current_channel,
                 node_statuses=node_statuses,
                 completed_nodes=data["completed_nodes"],
+                completed_channels=data.get("completed_channels", {}),
                 mastery_scores=data["mastery_scores"],
                 frustration_level=data["frustration_level"],
                 retry_counts=data["retry_counts"],
