@@ -857,19 +857,6 @@
                                 <h4 class="text-xl font-semibold text-gray-800">
                                     <i class="fas fa-road mr-2 text-blue-500"></i>学习路径节点
                                 </h4>
-                                <div class="flex items-center space-x-2">
-                                    <span class="text-sm text-gray-600">通道难度：</span>
-                                    <div class="flex bg-gray-100 rounded-lg p-1">
-                                        <button 
-                                            v-for="channel in ['A', 'B', 'C']" 
-                                            :key="channel"
-                                            @click="selectedChannel = channel"
-                                            :class="['px-3 py-1 rounded text-sm font-medium transition', 
-                                                   selectedChannel === channel ? getChannelButtonClass(channel) : 'text-gray-500 hover:text-gray-700']">
-                                            {{ channel }}通道
-                                        </button>
-                                    </div>
-                                </div>
                             </div>
                             
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -889,25 +876,47 @@
                                     
                                     <p class="text-gray-600 text-sm mb-3 line-clamp-2">{{ node.description }}</p>
                                     
-                                    <!-- 显示选中通道的任务详情 -->
-                                    <div v-if="selectedChannel" class="mb-3">
+                                    <!-- 节点通道切换器 -->
+                                    <div class="mb-3">
+                                        <div class="flex items-center justify-between mb-2">
+                                            <span class="text-xs text-gray-600 font-medium">选择难度通道：</span>
+                                            <span v-if="getCurrentChannel(node)" class="text-xs text-gray-500">
+                                                当前: {{ getCurrentChannel(node) }}通道
+                                            </span>
+                                        </div>
+                                        <div class="flex bg-gray-100 rounded-lg p-1">
+                                            <button 
+                                                v-for="channel in ['A', 'B', 'C']" 
+                                                :key="channel"
+                                                @click="switchCurrentTaskChannel(channel)"
+                                                :disabled="!isCurrentNode(node)"
+                                                :class="['px-2 py-1 rounded text-xs font-medium transition flex-1', 
+                                                       getCurrentChannel(node) === channel ? getChannelButtonClass(channel) : 'text-gray-500 hover:text-gray-700',
+                                                       !isCurrentNode(node) ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-200']">
+                                                {{ channel }}通道
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- 显示当前通道的任务详情 -->
+                                    <div v-if="getCurrentChannel(node)" class="mb-3">
                                         <div class="bg-gray-50 p-3 rounded-lg">
                                             <h6 class="font-semibold text-gray-700 text-xs mb-2">
-                                                {{ selectedChannel }}通道任务
+                                                {{ getCurrentChannel(node) }}通道任务
                                             </h6>
                                             <p class="text-xs text-gray-600 mb-2 line-clamp-2">
-                                                {{ getChannelTask(node, selectedChannel).task }}
+                                                {{ getChannelTask(node, getCurrentChannel(node)).task }}
                                             </p>
                                             <div class="flex items-center justify-between text-xs text-gray-500">
-                                                <span><i class="fas fa-clock mr-1"></i>{{ getChannelHours(node, selectedChannel) }}h</span>
-                                                <span><i class="fas fa-signal mr-1"></i>难度{{ getChannelDifficulty(node, selectedChannel) }}</span>
+                                                <span><i class="fas fa-clock mr-1"></i>{{ getChannelHours(node, getCurrentChannel(node)) }}h</span>
+                                                <span><i class="fas fa-signal mr-1"></i>难度{{ getChannelDifficulty(node, getCurrentChannel(node)) }}</span>
                                             </div>
                                         </div>
                                     </div>
                                     
                                     <div class="flex items-center justify-between text-xs text-gray-500">
                                         <span><i class="fas fa-layer-group mr-1"></i>ABC通道</span>
-                                        <span v-if="!selectedChannel"><i class="fas fa-clock mr-1"></i>{{ getEstimatedHours(node) }}h</span>
+                                        <span><i class="fas fa-clock mr-1"></i>{{ getEstimatedHours(node) }}h</span>
                                     </div>
                                 </div>
                             </div>
