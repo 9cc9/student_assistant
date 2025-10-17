@@ -324,11 +324,15 @@
                                 <div class="text-gray-600 font-semibold">完成作业数</div>
                             </div>
                             <div class="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-lg text-center">
-                                <div class="text-3xl font-bold text-green-600 mb-2">-</div>
+                                <div class="text-3xl font-bold text-green-600 mb-2">
+                                    {{ learningStatistics.average_score > 0 ? learningStatistics.average_score : '-' }}
+                                </div>
                                 <div class="text-gray-600 font-semibold">平均成绩</div>
                             </div>
                             <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-lg text-center">
-                                <div class="text-3xl font-bold text-purple-600 mb-2">-</div>
+                                <div class="text-3xl font-bold text-purple-600 mb-2">
+                                    {{ learningStatistics.completion_rate > 0 ? learningStatistics.completion_rate : '-' }}%
+                                </div>
                                 <div class="text-gray-600 font-semibold">学习进度</div>
                             </div>
                         </div>
@@ -769,7 +773,7 @@
                             </h3>
                             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                                 <div class="text-center">
-                                    <div class="text-3xl font-bold">{{ (studentProgress.completion_rate * 100).toFixed(2) }}%</div>
+                                    <div class="text-3xl font-bold">{{ (studentProgress.completion_rate * 100).toFixed(1) }}%</div>
                                     <div class="text-sm opacity-90">完成进度</div>
                                 </div>
                                 <div class="text-center">
@@ -1095,7 +1099,7 @@
                 <div v-show="activeTab === 'history'" class="bg-white rounded-xl card-shadow p-8">
                     <div class="mb-6">
                         <h3 class="text-xl font-bold text-gray-800 mb-4">
-                            <i class="fas fa-history mr-2 text-orange-500"></i>学习记录与评估历史
+                            <i class="fas fa-history mr-2 text-orange-500"></i>学习记录
                         </h3>
                         
                         <!-- 筛选器 -->

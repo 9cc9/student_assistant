@@ -76,7 +76,16 @@ createApp({
             
             // 诊断历史数据
             diagnosticHistory: [],
-            diagnosticHistoryLoading: false
+            diagnosticHistoryLoading: false,
+            
+            // 学习统计数据
+            learningStatistics: {
+                total_diagnostics: 0,
+                total_assessments: 0,
+                average_score: 0,
+                completion_rate: 0,
+                last_activity: null
+            }
         }
     },
     computed: {
@@ -1337,6 +1346,29 @@ createApp({
                     const learningData = await learningResponse.json()
                     this.historyData = learningData.records || []
                     console.log('学习历史已加载:', learningData.count, '条记录')
+                }
+                
+                // 加载学习统计
+                const statisticsResponse = await fetch('/api/student/statistics', {
+                    headers: {
+                        'Authorization': `Bearer ${this.authToken}`
+                    }
+                })
+                
+                if (statisticsResponse.ok) {
+                    const statisticsData = await statisticsResponse.json()
+                    this.learningStatistics = statisticsData
+                    console.log('✅ 学习统计已加载:', statisticsData)
+                    console.log('📊 统计数据详情:', {
+                        total_diagnostics: statisticsData.total_diagnostics,
+                        total_assessments: statisticsData.total_assessments,
+                        average_score: statisticsData.average_score,
+                        completion_rate: statisticsData.completion_rate
+                    })
+                } else {
+                    console.error('❌ 获取学习统计失败:', statisticsResponse.status, statisticsResponse.statusText)
+                    const errorText = await statisticsResponse.text()
+                    console.error('错误详情:', errorText)
                 }
             } catch (error) {
                 console.error('加载学生数据失败:', error)

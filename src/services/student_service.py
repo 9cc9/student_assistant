@@ -141,32 +141,37 @@ class StudentService:
             包含记录列表和总数的字典
         """
         try:
-            # 从assessment results目录读取学习记录
-            from ..storage.file_storage import FileStorage
-            storage = FileStorage()
-            
-            # 获取该学生的所有评估记录
-            results_dir = Path("./data/assessment_results")
-            if not results_dir.exists():
+            # 从assessments.json文件读取学习记录
+            assessments_file = Path("./storage/assessments.json")
+            if not assessments_file.exists():
                 return {"count": 0, "records": []}
             
+            # 读取所有评估记录
+            with open(assessments_file, 'r', encoding='utf-8') as f:
+                all_assessments = json.load(f)
+            
+            # 筛选该学生的评估记录
             records = []
-            for result_file in results_dir.glob(f"{student_id}_*.json"):
-                try:
-                    result = storage.load_assessment_result(result_file.stem)
-                    if result:
-                        # 简化记录格式
-                        record = {
-                            "assessment_id": result_file.stem,
-                            "student_id": result.student_id,
-                            "submitted_at": result.submitted_at.isoformat(),
-                            "final_score": result.final_score,
-                            "status": "completed"
-                        }
-                        records.append(record)
-                except Exception as e:
-                    logger.warning(f"读取记录失败: {result_file}, {str(e)}")
-                    continue
+            logger.info(f"📊 开始筛选学生 {student_id} 的评估记录，总记录数: {len(all_assessments)}")
+            
+            for assessment_id, assessment_data in all_assessments.items():
+                if assessment_data.get("student_id") == student_id:
+                    # 计算综合分数
+                    score_breakdown = assessment_data.get("score_breakdown", {})
+                    idea_score = score_breakdown.get("idea", 0)
+                    ui_score = score_breakdown.get("ui", 0)
+                    code_score = score_breakdown.get("code", 0)
+                    final_score = round((idea_score + ui_score + code_score) / 3, 1)
+                    
+                    # 简化记录格式
+                    record = {
+                        "assessment_id": assessment_id,
+                        "student_id": assessment_data.get("student_id"),
+                        "submitted_at": assessment_data.get("created_at"),
+                        "final_score": final_score,
+                        "status": assessment_data.get("status", "completed")
+                    }
+                    records.append(record)
             
             # 按时间降序排序
             records.sort(key=lambda x: x['submitted_at'], reverse=True)
@@ -175,7 +180,8 @@ class StudentService:
             total_count = len(records)
             records = records[offset:offset + limit]
             
-            logger.info(f"📚 获取学习历史: {student_id}, 共{total_count}条")
+            logger.info(f"📚 获取学习历史: {student_id}, 共{total_count}条记录")
+            logger.info(f"📚 学习记录详情: {[r['assessment_id'] + ':' + str(r['final_score']) for r in records[:3]]}")
             return {
                 "count": total_count,
                 "records": records
@@ -204,12 +210,32 @@ class StudentService:
             learning_data = self.get_learning_history(student_id, limit=1000)
             learning_records = learning_data["records"]
             
+            # 获取学习路径进度
+            from ..services.learning_path_service import LearningPathService
+            path_service = LearningPathService()
+            student_progress = path_service.get_student_progress(student_id)
+            
+            logger.info(f"📊 获取学习统计 - 学生: {student_id}")
+            logger.info(f"📊 学习路径进度数据: {student_progress}")
+            
+            # 计算学习路径完成率
+            completion_rate = 0
+            if student_progress and student_progress.completed_nodes:
+                # 假设总共有7个学习节点
+                total_nodes = 7
+                completed_count = len(student_progress.completed_nodes)
+                completion_rate = round((completed_count / total_nodes) * 100, 1)
+                logger.info(f"📊 学习路径完成率计算: {completed_count}/{total_nodes} = {completion_rate}%")
+            else:
+                logger.info(f"📊 学习路径进度为空或不存在")
+            
             # 计算统计
             stats = {
                 "total_diagnostics": len(diagnostic_history),
                 "total_assessments": learning_data["count"],
                 "latest_diagnostic": latest_diagnostic,
                 "average_score": 0,
+                "completion_rate": completion_rate,
                 "last_activity": None
             }
             
@@ -218,7 +244,9 @@ class StudentService:
                 total_score = sum(r.get("final_score", 0) for r in learning_records)
                 stats["average_score"] = round(total_score / len(learning_records), 1)
                 stats["last_activity"] = learning_records[0]["submitted_at"]
+                logger.info(f"📊 平均分计算: {total_score}/{len(learning_records)} = {stats['average_score']}")
             
+            logger.info(f"📊 最终统计数据: {stats}")
             return stats
             
         except Exception as e:
