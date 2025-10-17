@@ -793,7 +793,7 @@
                             <!-- 进度条 -->
                             <div class="mt-4">
                                 <div class="w-full bg-white bg-opacity-20 rounded-full h-3">
-                                    <div class="progress-bar h-3 rounded-full" :style="{width: studentProgress.completion_rate + '%'}"></div>
+                                    <div class="progress-bar h-3 rounded-full" :style="{width: (studentProgress.completion_rate * 100) + '%'}"></div>
                                 </div>
                             </div>
                         </div>

@@ -5,7 +5,7 @@ from typing import Dict, List, Any, Optional
 from pydantic import BaseModel
 from datetime import datetime
 
-from ..models import ScoreBreakdown, DiagnosisItem
+from ..models import ScoreBreakdown, Diagnosis
 
 
 class EvaluationResult(BaseModel):
@@ -13,7 +13,7 @@ class EvaluationResult(BaseModel):
     category: str  # idea, ui, code
     overall_score: float  # 0-100
     breakdown: List[ScoreBreakdown]
-    diagnosis: List[DiagnosisItem] 
+    diagnosis: List[Diagnosis] 
     evidence: List[str]
     processing_time: float
     created_at: datetime
@@ -54,13 +54,13 @@ class BaseEvaluator(ABC):
         """验证输入内容"""
         return content is not None
     
-    def _generate_suggestions(self, diagnosis: List[DiagnosisItem]) -> List[str]:
+    def _generate_suggestions(self, diagnosis: List[Diagnosis]) -> List[str]:
         """根据诊断结果生成建议"""
         suggestions = []
         for item in diagnosis:
-            if item.severity == "critical":
+            if item.priority == 1:
                 suggestions.append(f"紧急修复: {item.fix}")
-            elif item.severity == "major": 
+            elif item.priority <= 3: 
                 suggestions.append(f"重要改进: {item.fix}")
             else:
                 suggestions.append(f"建议优化: {item.fix}")

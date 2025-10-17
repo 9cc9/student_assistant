@@ -4,7 +4,7 @@ from typing import List, Dict, Any
 from datetime import datetime
 
 from .base import EvaluationResult
-from ..models import AssessmentResult, DiagnosisItem, ExitRule, ScoreBreakdown
+from ..models import AssessmentResult, Diagnosis, ExitRule, ScoreBreakdown
 
 
 class ScoreAggregator:
@@ -97,16 +97,15 @@ class ScoreAggregator:
             created_at=datetime.now()
         )
     
-    def _merge_diagnosis(self, evaluation_results: List[EvaluationResult]) -> List[DiagnosisItem]:
+    def _merge_diagnosis(self, evaluation_results: List[EvaluationResult]) -> List[Diagnosis]:
         """合并诊断结果，去重并按严重程度排序"""
         all_diagnosis = []
         
         for result in evaluation_results:
             all_diagnosis.extend(result.diagnosis)
         
-        # 按严重程度排序
-        severity_order = {"critical": 0, "major": 1, "minor": 2}
-        all_diagnosis.sort(key=lambda x: severity_order.get(x.severity, 3))
+        # 按优先级排序 (Diagnosis类使用priority字段，1最高)
+        all_diagnosis.sort(key=lambda x: x.priority)
         
         # 去重(基于dimension和issue)
         seen = set()
@@ -121,7 +120,7 @@ class ScoreAggregator:
     
     def _generate_resource_recommendations(
         self, 
-        diagnosis: List[DiagnosisItem], 
+        diagnosis: List[Diagnosis], 
         category_scores: Dict[str, float]
     ) -> List[str]:
         """根据诊断结果生成学习资源推荐"""
@@ -168,7 +167,7 @@ class ScoreAggregator:
     def _generate_exit_rules(
         self, 
         category_scores: Dict[str, float], 
-        diagnosis: List[DiagnosisItem]
+        diagnosis: List[Diagnosis]
     ) -> ExitRule:
         """生成准出规则"""
         # 判断是否通过
@@ -197,7 +196,7 @@ class ScoreAggregator:
         requirements = []
         
         # 基于具体问题生成补救措施
-        critical_issues = [d for d in diagnosis if d.severity == "critical"]
+        critical_issues = [d for d in diagnosis if d.priority == 1]
         
         for issue in critical_issues:
             if "code.correctness" in issue.dimension and category_scores.get("code", 0) < 70:
@@ -236,7 +235,7 @@ class ScoreAggregator:
         self,
         overall_score: float,
         category_scores: Dict[str, float],
-        diagnosis: List[DiagnosisItem]
+        diagnosis: List[Diagnosis]
     ) -> str:
         """生成总体反馈"""
         feedback_parts = []
@@ -262,7 +261,7 @@ class ScoreAggregator:
                 feedback_parts.append(f"• {category_name}: {score:.1f}分 - 需要改进")
         
         # 主要问题
-        critical_issues = [d for d in diagnosis if d.severity == "critical"]
+        critical_issues = [d for d in diagnosis if d.priority == 1]
         if critical_issues:
             feedback_parts.append(f"\n需要重点关注的问题：")
             for issue in critical_issues[:3]:  # 只显示前3个

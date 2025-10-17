@@ -163,13 +163,26 @@ class StudentService:
                     code_score = score_breakdown.get("code", 0)
                     final_score = round((idea_score + ui_score + code_score) / 3, 1)
                     
-                    # 简化记录格式
+                    # 包含完整评估数据的记录格式（不包含路径推荐）
                     record = {
                         "assessment_id": assessment_id,
                         "student_id": assessment_data.get("student_id"),
                         "submitted_at": assessment_data.get("created_at"),
+                        "created_at": assessment_data.get("created_at"),  # 添加created_at字段
                         "final_score": final_score,
-                        "status": assessment_data.get("status", "completed")
+                        "overall_score": final_score,  # 添加overall_score字段
+                        "status": assessment_data.get("status", "completed"),
+                        # 包含完整的评估结果数据
+                        "score_breakdown": assessment_data.get("score_breakdown", {}),
+                        "breakdown": assessment_data.get("score_breakdown", {}),  # 添加breakdown字段
+                        "detailed_scores": assessment_data.get("detailed_scores", {}),
+                        "diagnosis": assessment_data.get("diagnosis", []),
+                        "resources": assessment_data.get("resources", []),
+                        "exit_rules": assessment_data.get("exit_rules", {}),
+                        "comprehensive_feedback": assessment_data.get("comprehensive_feedback", ""),
+                        "deliverables": assessment_data.get("deliverables", {}),
+                        "raw_data": assessment_data  # 保留原始数据以备需要
+                        # 注意：移除了 path_recommendation 字段
                     }
                     records.append(record)
             

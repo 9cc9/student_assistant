@@ -10,7 +10,7 @@ import cv2
 import numpy as np
 
 from .base import BaseEvaluator, EvaluationResult
-from ..models import ScoreBreakdown, DiagnosisItem, ScoreDimension
+from ..models import ScoreBreakdown, Diagnosis, ScoreDimension
 
 
 class UIAnalyzer(BaseEvaluator):
@@ -438,7 +438,7 @@ class UIAnalyzer(BaseEvaluator):
             total_score += item.score * item.weight
         return round(total_score, 1)
     
-    def _generate_diagnosis(self, breakdown: List[ScoreBreakdown], analysis: Dict[str, Any]) -> List[DiagnosisItem]:
+    def _generate_diagnosis(self, breakdown: List[ScoreBreakdown], analysis: Dict[str, Any]) -> List[Diagnosis]:
         """生成诊断结果"""
         diagnosis = []
         
@@ -454,12 +454,11 @@ class UIAnalyzer(BaseEvaluator):
                 suggestion_idx = item.issues.index(issue)
                 fix = item.suggestions[suggestion_idx] if suggestion_idx < len(item.suggestions) else "需要改进"
                 
-                diagnosis.append(DiagnosisItem(
+                diagnosis.append(Diagnosis(
                     dimension=item.dimension,
                     issue=issue,
-                    severity=severity,
                     fix=fix,
-                    resources=[]
+                    priority=1 if severity == "critical" else 2 if severity == "major" else 3
                 ))
         
         return diagnosis

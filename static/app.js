@@ -329,6 +329,13 @@ createApp({
                         current_node_id: data.current_status.current_node_id,
                         current_channel: data.current_status.current_channel
                     }
+                    console.log('✅ 学习进度已加载:', this.studentProgress)
+                    console.log('📊 进度详情:', {
+                        completed_nodes: this.studentProgress.completed_nodes,
+                        completed_count: this.studentProgress.completed_nodes?.length || 0,
+                        completion_rate: this.studentProgress.completion_rate,
+                        completion_rate_percentage: (this.studentProgress.completion_rate * 100).toFixed(1) + '%'
+                    })
                     this.currentTask = data.current_task
                     await this.loadLearningPath()
                 }
@@ -414,8 +421,6 @@ createApp({
                     // 重新加载学习进度以保持数据同步
                     await this.loadStudentProgress()
                     
-                    // 显示成功提示
-                    this.showSuccessMessage(`已切换到${channel}通道！`)
                 } else {
                     const error = await response.json()
                     this.showErrorMessage('切换通道失败: ' + (error.detail || '未知错误'))
@@ -801,6 +806,18 @@ createApp({
         
         viewHistoryDetail(record) {
             // 查看历史记录详情
+            console.log('🔍 查看历史记录详情:', record)
+            console.log('📊 记录包含的数据字段:', Object.keys(record))
+            console.log('📈 分数数据:', {
+                final_score: record.final_score,
+                overall_score: record.overall_score,
+                breakdown: record.breakdown,
+                score_breakdown: record.score_breakdown
+            })
+            console.log('🔍 诊断数据:', record.diagnosis)
+            console.log('📚 资源数据:', record.resources)
+            console.log('📋 准出规则:', record.exit_rules)
+            
             this.assessmentResult = record
             this.activeTab = 'history'  // 确保切换到学习记录标签页
             this.scrollToResult()
@@ -1076,8 +1093,6 @@ createApp({
                     
                     // 重新加载学习进度
                     await this.loadStudentProgress()
-                    
-                    alert(`已切换到${channel}通道！`)
                 } else {
                     const error = await response.json()
                     alert('切换通道失败: ' + (error.detail || '未知错误'))
