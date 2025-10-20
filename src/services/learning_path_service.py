@@ -30,325 +30,190 @@ class LearningPathService:
         if not hasattr(self, 'learning_paths'):
             self.learning_paths = {}
             self.student_progresses = {}
-            self._init_default_course_path()
+            self._load_learning_paths_from_config()
             self._load_student_progresses()
             logger.info(f"📚 LearningPathService 已初始化")
     
-    def _init_default_course_path(self):
-        """初始化默认的课程学习路径"""
-        # 定义课程的7个固定节点
-        course_nodes = [
-            self._create_node("api_calling", "API调用", "学习如何调用各种API接口", 1),
-            self._create_node("model_deployment", "模型部署", "学习如何部署AI模型", 2),
-            self._create_node("no_code_ai", "零代码配置AI应用", "使用无代码平台构建AI应用", 3),
-            self._create_node("rag_system", "RAG系统", "构建检索增强生成系统", 4),
-            self._create_node("ui_design", "UI设计", "设计用户界面", 5),
-            self._create_node("frontend_dev", "前端开发", "开发前端应用", 6),
-            self._create_node("backend_dev", "后端开发", "开发后端服务", 7),
-        ]
-        
-        # 创建默认学习路径
-        default_path = LearningPath(
-            id="default_course_path",
-            name="基于大模型的个性化生活助手开发课程",
-            description="从API调用到完整应用开发的全流程学习路径",
-            nodes=course_nodes,
-            target_audience=["本科生", "初学者", "有基础的开发者"],
-            prerequisites_knowledge=["基本编程概念", "Python基础"],
-            learning_outcomes=[
-                "掌握大模型API调用技能", 
-                "能够独立部署AI模型",
-                "具备完整的前后端开发能力",
-                "能够构建RAG应用系统"
-            ]
-        )
-        
-        self.learning_paths["default_course_path"] = default_path
-        logger.info(f"📚 默认课程路径已创建，包含 {len(course_nodes)} 个节点")
+    def _load_learning_paths_from_config(self):
+        """从配置文件加载学习路径"""
+        try:
+            config_file = Path("config/learning_paths.json")
+            if not config_file.exists():
+                raise FileNotFoundError("学习路径配置文件不存在: config/learning_paths.json")
+            
+            with open(config_file, 'r', encoding='utf-8') as f:
+                config_data = json.load(f)
+            
+            for path_id, path_config in config_data.items():
+                learning_path = self._create_learning_path_from_config(path_config)
+                if learning_path:
+                    self.learning_paths[path_id] = learning_path
+                    logger.info(f"📚 学习路径已加载: {path_id}, 包含 {len(learning_path.nodes)} 个节点")
+            
+            if not self.learning_paths:
+                raise ValueError("学习路径配置已读取，但未加载到任何学习路径")
+            
+            logger.info(f"📚 共加载了 {len(self.learning_paths)} 个学习路径")
+            
+        except Exception as e:
+            logger.error(f"📚 加载学习路径配置失败: {str(e)}")
+            raise
     
-    def _create_node(self, node_id: str, name: str, description: str, order: int) -> PathNode:
-        """创建学习节点"""
-        # 根据节点类型定义A/B/C通道任务
-        channel_tasks = self._get_channel_tasks_for_node(node_id)
-        estimated_hours = self._get_estimated_hours_for_node(node_id)
-        difficulty_level = self._get_difficulty_level_for_node(node_id)
-        
-        # 设置前置依赖
-        prerequisites = []
-        if order > 1:
-            prev_nodes = [
-                "api_calling", "model_deployment", "no_code_ai", 
-                "rag_system", "ui_design", "frontend_dev", "backend_dev"
-            ]
-            if order <= len(prev_nodes):
-                prerequisites = [prev_nodes[order - 2]]  # 前一个节点作为依赖
-        
-        # 创建门槛卡
-        checkpoint = CheckpointRule(
-            checkpoint_id=f"{node_id}_checkpoint",
-            must_pass=self._get_checkpoint_requirements(node_id),
-            evidence=self._get_checkpoint_evidence(node_id),
-            auto_grade=self._get_auto_grade_rules(node_id)
-        )
-        
-        # 补救资源
-        remedy_resources = self._get_remedy_resources(node_id)
-        
-        return PathNode(
-            id=node_id,
-            name=name,
-            description=description,
-            order=order,
-            channel_tasks=channel_tasks,
-            prerequisites=prerequisites,
-            checkpoint=checkpoint,
-            remedy_resources=remedy_resources,
-            estimated_hours=estimated_hours,
-            difficulty_level=difficulty_level
-        )
+    def _create_learning_path_from_config(self, config: Dict[str, Any]) -> Optional[LearningPath]:
+        """从配置数据创建学习路径对象"""
+        try:
+            # 创建节点列表
+            nodes = []
+            for node_config in config.get("nodes", []):
+                node = self._create_node_from_config(node_config)
+                if node:
+                    nodes.append(node)
+            
+            # 创建学习路径
+            learning_path = LearningPath(
+                id=config["id"],
+                name=config["name"],
+                description=config["description"],
+                nodes=nodes,
+                target_audience=config.get("target_audience", []),
+                prerequisites_knowledge=config.get("prerequisites_knowledge", []),
+                learning_outcomes=config.get("learning_outcomes", [])
+            )
+            
+            return learning_path
+            
+        except Exception as e:
+            logger.error(f"📚 从配置创建学习路径失败: {str(e)}")
+            return None
+    
+    def _create_node_from_config(self, node_config: Dict[str, Any]) -> Optional[PathNode]:
+        """从配置数据创建学习节点"""
+        try:
+            # 解析通道任务
+            channel_tasks = {}
+            for channel_name, task_config in node_config.get("channel_tasks", {}).items():
+                channel = Channel[channel_name]
+                channel_tasks[channel] = task_config
+            
+            # 解析预估时长
+            estimated_hours = {}
+            for channel_name, hours in node_config.get("estimated_hours", {}).items():
+                channel = Channel[channel_name]
+                estimated_hours[channel] = hours
+            
+            # 解析难度等级
+            difficulty_level = {}
+            for channel_name, level in node_config.get("difficulty_level", {}).items():
+                channel = Channel[channel_name]
+                difficulty_level[channel] = level
+            
+            # 创建门槛卡
+            checkpoint_config = node_config.get("checkpoint", {})
+            checkpoint = CheckpointRule(
+                checkpoint_id=checkpoint_config.get("checkpoint_id", f"{node_config['id']}_checkpoint"),
+                must_pass=checkpoint_config.get("must_pass", []),
+                evidence=checkpoint_config.get("evidence", []),
+                auto_grade=checkpoint_config.get("auto_grade", {})
+            )
+            
+            # 创建节点
+            node = PathNode(
+                id=node_config["id"],
+                name=node_config["name"],
+                description=node_config["description"],
+                order=node_config["order"],
+                channel_tasks=channel_tasks,
+                prerequisites=node_config.get("prerequisites", []),
+                checkpoint=checkpoint,
+                remedy_resources=node_config.get("remedy_resources", {}),
+                estimated_hours=estimated_hours,
+                difficulty_level=difficulty_level
+            )
+            
+            return node
+            
+        except Exception as e:
+            logger.error(f"📚 从配置创建学习节点失败: {str(e)}")
+            return None
+    
+    # 备用节点构造函数已移除，必须依赖配置文件提供所有节点定义
     
     def _get_channel_tasks_for_node(self, node_id: str) -> Dict[Channel, Dict[str, Any]]:
         """获取节点的A/B/C通道任务定义"""
-        tasks_mapping = {
-            "api_calling": {
-                Channel.A: {
-                    "task": "用SDK完成3个API调用",
-                    "requirements": ["成功调用OpenAI API", "处理基本错误", "输出结果"],
-                    "deliverables": ["调用代码", "运行截图", "简单报告"]
-                },
-                Channel.B: {
-                    "task": "手写HTTP并处理鉴权/限流",
-                    "requirements": ["实现HTTP请求", "处理API鉴权", "实现错误重试", "限流控制"],
-                    "deliverables": ["完整代码", "错误处理机制", "测试用例"]
-                },
-                Channel.C: {
-                    "task": "封装可复用SDK并发布包",
-                    "requirements": ["SDK架构设计", "完整单元测试", "文档编写", "发布到PyPI"],
-                    "deliverables": ["SDK包", "完整文档", "使用示例", "PyPI链接"]
-                }
-            },
-            "model_deployment": {
-                Channel.A: {
-                    "task": "Ollama本地拉起模型",
-                    "requirements": ["安装Ollama", "成功运行模型", "基本调用测试"],
-                    "deliverables": ["部署截图", "调用代码", "测试结果"]
-                },
-                Channel.B: {
-                    "task": "Docker化并开放REST接口",
-                    "requirements": ["编写Dockerfile", "构建镜像", "REST API", "接口文档"],
-                    "deliverables": ["Docker镜像", "API文档", "部署脚本"]
-                },
-                Channel.C: {
-                    "task": "GPU/并发优化与压测",
-                    "requirements": ["GPU加速配置", "并发处理", "性能测试", "负载均衡"],
-                    "deliverables": ["优化报告", "压测结果", "部署方案"]
-                }
-            },
-            "no_code_ai": {
-                Channel.A: {
-                    "task": "Dify搭建基础Flow",
-                    "requirements": ["创建基础对话Flow", "连接LLM", "测试功能"],
-                    "deliverables": ["Flow截图", "测试对话", "功能演示"]
-                },
-                Channel.B: {
-                    "task": "引入工具调用与变量",
-                    "requirements": ["集成工具调用", "变量管理", "条件分支", "复杂Flow"],
-                    "deliverables": ["复杂Flow", "工具集成", "变量配置"]
-                },
-                Channel.C: {
-                    "task": "自定义插件扩展",
-                    "requirements": ["开发自定义插件", "API集成", "插件文档", "分享发布"],
-                    "deliverables": ["插件代码", "集成演示", "使用文档"]
-                }
-            },
-            "rag_system": {
-                Channel.A: {
-                    "task": "用LangChain现成模块",
-                    "requirements": ["文档加载", "向量存储", "基础检索", "简单问答"],
-                    "deliverables": ["RAG系统", "查询演示", "简单UI"]
-                },
-                Channel.B: {
-                    "task": "手搓Embedding+FAISS",
-                    "requirements": ["自实现Embedding", "FAISS索引", "检索算法", "相关性排序"],
-                    "deliverables": ["检索系统", "性能测试", "对比分析"]
-                },
-                Channel.C: {
-                    "task": "加入重排序/多向量检索",
-                    "requirements": ["重排序算法", "多向量融合", "检索优化", "评估系统"],
-                    "deliverables": ["高级检索系统", "性能报告", "优化方案"]
-                }
-            },
-            "ui_design": {
-                Channel.A: {
-                    "task": "使用模板快速搭建",
-                    "requirements": ["选择合适模板", "基础修改", "颜色调整", "内容替换"],
-                    "deliverables": ["设计稿", "色彩方案", "组件库"]
-                },
-                Channel.B: {
-                    "task": "遵循设计规范进行定制",
-                    "requirements": ["遵循Material Design", "可访问性设计", "交互规范", "用户测试"],
-                    "deliverables": ["设计系统", "原型图", "用户测试报告"]
-                },
-                Channel.C: {
-                    "task": "实现响应式布局与交互优化",
-                    "requirements": ["响应式设计", "高级交互", "动效设计", "性能优化"],
-                    "deliverables": ["完整设计系统", "交互演示", "设计文档"]
-                }
-            },
-            "frontend_dev": {
-                Channel.A: {
-                    "task": "使用框架模板二开",
-                    "requirements": ["框架模板使用", "基础组件", "简单交互", "基本部署"],
-                    "deliverables": ["前端应用", "功能演示", "部署链接"]
-                },
-                Channel.B: {
-                    "task": "从零搭建React/Vue应用",
-                    "requirements": ["项目搭建", "组件开发", "状态管理", "路由配置"],
-                    "deliverables": ["完整应用", "代码仓库", "技术文档"]
-                },
-                Channel.C: {
-                    "task": "集成状态管理与性能优化",
-                    "requirements": ["Redux/Vuex", "性能优化", "代码分割", "PWA特性"],
-                    "deliverables": ["高级应用", "性能报告", "优化方案"]
-                }
-            },
-            "backend_dev": {
-                Channel.A: {
-                    "task": "使用FastAPI/Flask模板",
-                    "requirements": ["API模板使用", "基础路由", "简单数据库", "基本部署"],
-                    "deliverables": ["后端服务", "API文档", "部署演示"]
-                },
-                Channel.B: {
-                    "task": "从零搭建RESTful API",
-                    "requirements": ["API设计", "数据库设计", "认证鉴权", "错误处理"],
-                    "deliverables": ["完整API服务", "数据库设计", "接口文档"]
-                },
-                Channel.C: {
-                    "task": "集成MCP/Agent框架与权限/日志",
-                    "requirements": ["Agent框架集成", "复杂权限系统", "完整日志", "监控系统"],
-                    "deliverables": ["企业级后端", "监控报告", "运维方案"]
-                }
-            }
-        }
+        # 从已加载的学习路径中查找节点
+        for path in self.learning_paths.values():
+            for node in path.nodes:
+                if node.id == node_id:
+                    return node.channel_tasks
         
-        return tasks_mapping.get(node_id, {
-            Channel.A: {"task": "基础任务", "requirements": ["基础要求"], "deliverables": ["基础交付"]},
-            Channel.B: {"task": "标准任务", "requirements": ["标准要求"], "deliverables": ["标准交付"]},
-            Channel.C: {"task": "挑战任务", "requirements": ["挑战要求"], "deliverables": ["挑战交付"]}
-        })
+        # 未在配置中找到节点
+        raise ValueError(f"未找到节点的通道任务定义: {node_id}")
     
     def _get_estimated_hours_for_node(self, node_id: str) -> Dict[Channel, int]:
         """获取节点的预估学习时长"""
-        hours_mapping = {
-            "api_calling": {Channel.A: 4, Channel.B: 8, Channel.C: 16},
-            "model_deployment": {Channel.A: 6, Channel.B: 12, Channel.C: 20},
-            "no_code_ai": {Channel.A: 3, Channel.B: 6, Channel.C: 12},
-            "rag_system": {Channel.A: 8, Channel.B: 16, Channel.C: 24},
-            "ui_design": {Channel.A: 6, Channel.B: 12, Channel.C: 18},
-            "frontend_dev": {Channel.A: 10, Channel.B: 20, Channel.C: 30},
-            "backend_dev": {Channel.A: 12, Channel.B: 24, Channel.C: 36}
-        }
-        return hours_mapping.get(node_id, {Channel.A: 4, Channel.B: 8, Channel.C: 12})
+        # 从已加载的学习路径中查找节点
+        for path in self.learning_paths.values():
+            for node in path.nodes:
+                if node.id == node_id:
+                    return node.estimated_hours
+        
+        # 未在配置中找到节点
+        raise ValueError(f"未找到节点的预估时长: {node_id}")
     
     def _get_difficulty_level_for_node(self, node_id: str) -> Dict[Channel, int]:
         """获取节点的难度等级 (1-10)"""
-        difficulty_mapping = {
-            "api_calling": {Channel.A: 3, Channel.B: 6, Channel.C: 9},
-            "model_deployment": {Channel.A: 4, Channel.B: 7, Channel.C: 9},
-            "no_code_ai": {Channel.A: 2, Channel.B: 4, Channel.C: 7},
-            "rag_system": {Channel.A: 5, Channel.B: 8, Channel.C: 10},
-            "ui_design": {Channel.A: 3, Channel.B: 6, Channel.C: 8},
-            "frontend_dev": {Channel.A: 4, Channel.B: 7, Channel.C: 9},
-            "backend_dev": {Channel.A: 5, Channel.B: 8, Channel.C: 10}
-        }
-        return difficulty_mapping.get(node_id, {Channel.A: 3, Channel.B: 6, Channel.C: 9})
+        # 从已加载的学习路径中查找节点
+        for path in self.learning_paths.values():
+            for node in path.nodes:
+                if node.id == node_id:
+                    return node.difficulty_level
+        
+        # 未在配置中找到节点
+        raise ValueError(f"未找到节点的难度等级: {node_id}")
     
     def _get_checkpoint_requirements(self, node_id: str) -> List[str]:
         """获取门槛卡要求"""
-        requirements_mapping = {
-            "api_calling": ["能成功调用API", "能处理基本错误", "理解API限流机制"],
-            "model_deployment": ["能本地部署模型", "能配置基本参数", "理解模型推理过程"],
-            "no_code_ai": ["能创建AI应用Flow", "能配置基本功能", "能调试应用逻辑"],
-            "rag_system": ["能独立构建索引", "能解释召回与精排差异", "能评估检索效果"],
-            "ui_design": ["遵循设计规范", "满足可访问性要求", "通过用户测试"],
-            "frontend_dev": ["功能完整可用", "代码规范良好", "性能达标"],
-            "backend_dev": ["API接口完整", "数据安全可靠", "错误处理完善"]
-        }
-        return requirements_mapping.get(node_id, ["完成基础要求", "通过质量检查"])
+        # 从已加载的学习路径中查找节点
+        for path in self.learning_paths.values():
+            for node in path.nodes:
+                if node.id == node_id:
+                    return node.checkpoint.must_pass
+        
+        # 未在配置中找到节点
+        raise ValueError(f"未找到节点的门槛卡要求: {node_id}")
     
     def _get_checkpoint_evidence(self, node_id: str) -> List[str]:
         """获取门槛卡证据要求"""
-        evidence_mapping = {
-            "api_calling": ["代码仓库链接", "运行截图", "测试报告"],
-            "model_deployment": ["部署文档", "运行演示", "性能测试"],
-            "no_code_ai": ["应用链接", "功能演示视频", "配置说明"],
-            "rag_system": ["系统演示", "性能评估报告", "技术说明文档"],
-            "ui_design": ["设计稿", "原型链接", "用户测试报告"],
-            "frontend_dev": ["在线演示", "代码仓库", "技术文档"],
-            "backend_dev": ["API文档", "部署说明", "测试用例"]
-        }
-        return evidence_mapping.get(node_id, ["仓库链接", "演示视频", "说明文档"])
+        # 从已加载的学习路径中查找节点
+        for path in self.learning_paths.values():
+            for node in path.nodes:
+                if node.id == node_id:
+                    return node.checkpoint.evidence
+        
+        # 未在配置中找到节点
+        raise ValueError(f"未找到节点的门槛卡证据: {node_id}")
     
     def _get_auto_grade_rules(self, node_id: str) -> Dict[str, Any]:
         """获取自动评分规则"""
-        rules_mapping = {
-            "api_calling": {
-                "success_rate": 0.9,
-                "response_time_ms": 2000,
-                "error_handling": True
-            },
-            "model_deployment": {
-                "deployment_success": True,
-                "response_time_ms": 5000,
-                "memory_usage_mb": 2048
-            },
-            "rag_system": {
-                "unit_test_coverage": 0.8,
-                "latency_ms_at_k5": 800,
-                "relevance_score": 0.7
-            },
-            "ui_design": {
-                "accessibility_score": 0.8,
-                "performance_score": 0.7,
-                "design_consistency": True
-            },
-            "frontend_dev": {
-                "lighthouse_score": 80,
-                "test_coverage": 0.7,
-                "build_success": True
-            },
-            "backend_dev": {
-                "api_test_pass_rate": 0.9,
-                "security_scan_pass": True,
-                "performance_benchmark": True
-            }
-        }
-        return rules_mapping.get(node_id, {"basic_completion": True})
+        # 从已加载的学习路径中查找节点
+        for path in self.learning_paths.values():
+            for node in path.nodes:
+                if node.id == node_id:
+                    return node.checkpoint.auto_grade
+        
+        # 未在配置中找到节点
+        raise ValueError(f"未找到节点的自动评分规则: {node_id}")
     
     def _get_remedy_resources(self, node_id: str) -> Dict[str, List[str]]:
         """获取补救资源"""
-        resources_mapping = {
-            "api_calling": {
-                "微课": ["API调用基础", "错误处理最佳实践", "限流与重试机制"],
-                "引导题": ["练习API调用", "处理不同错误类型", "实现指数退避"],
-                "对照示例": ["标准API调用代码", "错误处理示例", "SDK封装示例"]
-            },
-            "model_deployment": {
-                "微课": ["模型部署基础", "Docker容器化", "性能优化技巧"],
-                "引导题": ["本地部署练习", "容器化实践", "性能测试"],
-                "对照示例": ["部署脚本模板", "Dockerfile示例", "监控配置"]
-            },
-            "rag_system": {
-                "微课": ["向量数据库原理", "检索算法优化", "评估方法"],
-                "引导题": ["构建简单索引", "实现检索排序", "评估检索质量"],
-                "对照示例": ["RAG系统架构", "检索优化代码", "评估脚本"]
-            }
-        }
-        return resources_mapping.get(node_id, {
-            "微课": ["基础概念讲解"],
-            "引导题": ["实践练习"],
-            "对照示例": ["参考代码"]
-        })
+        # 从已加载的学习路径中查找节点
+        for path in self.learning_paths.values():
+            for node in path.nodes:
+                if node.id == node_id:
+                    return node.remedy_resources
+        
+        # 未在配置中找到节点
+        raise ValueError(f"未找到节点的补救资源: {node_id}")
     
     async def create_student_profile(
         self, 
@@ -432,12 +297,22 @@ class LearningPathService:
         # 根据学生水平确定起始通道
         initial_channel = self._determine_initial_channel(profile.level)
         
+        # 从配置中获取第一个节点（按 order 排序）
+        if not self.learning_paths:
+            raise ValueError("未加载任何学习路径，无法初始化学生学习路径")
+        # 取第一个学习路径
+        first_path = next(iter(self.learning_paths.values()))
+        if not first_path.nodes:
+            raise ValueError("学习路径无任何节点，无法初始化学生学习路径")
+        first_node = sorted(first_path.nodes, key=lambda n: n.order)[0]
+        first_node_id = first_node.id
+        
         # 创建进度跟踪
         progress = StudentPathProgress(
             student_id=student_id,
-            current_node_id="api_calling",  # 从第一个节点开始
+            current_node_id=first_node_id,  # 从配置的第一个节点开始
             current_channel=initial_channel,
-            node_statuses={"api_calling": NodeStatus.AVAILABLE},
+            node_statuses={first_node_id: NodeStatus.AVAILABLE},
             completed_nodes=[],
             mastery_scores={},
             frustration_level=0.0,
@@ -572,10 +447,16 @@ class LearningPathService:
     
     def _get_next_node(self, current_node_id: str, completed_nodes: List[str]) -> str:
         """获取下一个学习节点"""
-        node_sequence = [
-            "api_calling", "model_deployment", "no_code_ai", 
-            "rag_system", "ui_design", "frontend_dev", "backend_dev"
-        ]
+        # 从配置中获取节点序列
+        node_sequence = []
+        for path in self.learning_paths.values():
+            for node in sorted(path.nodes, key=lambda x: x.order):
+                node_sequence.append(node.id)
+            break  # 只取第一个路径的节点序列
+        
+        if not node_sequence:
+            # 配置异常：没有任何节点
+            raise ValueError("学习路径未包含任何节点，无法计算下一个节点")
         
         try:
             current_index = node_sequence.index(current_node_id)
@@ -588,7 +469,7 @@ class LearningPathService:
             for node_id in node_sequence:
                 if node_id not in completed_nodes:
                     return node_id
-            return node_sequence[0]  # 默认返回第一个节点
+            return node_sequence[0] if node_sequence else current_node_id
     
     def _generate_recommendation_reasoning(
         self,

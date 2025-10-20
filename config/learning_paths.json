@@ -1,0 +1,358 @@
+{
+  "default_course_path": {
+    "id": "default_course_path",
+    "name": "基于大模型的个性化生活助手开发课程",
+    "description": "从API调用到完整应用开发的全流程学习路径",
+    "target_audience": ["本科生", "初学者", "有基础的开发者"],
+    "prerequisites_knowledge": ["基本编程概念", "Python基础"],
+    "learning_outcomes": [
+      "掌握大模型API调用技能",
+      "能够独立部署AI模型",
+      "具备完整的前后端开发能力",
+      "能够构建RAG应用系统"
+    ],
+    "nodes": [
+      {
+        "id": "api_calling",
+        "name": "API调用",
+        "description": "学习如何调用各种API接口",
+        "order": 1,
+        "prerequisites": [],
+        "estimated_hours": {
+          "A": 4,
+          "B": 8,
+          "C": 16
+        },
+        "difficulty_level": {
+          "A": 3,
+          "B": 6,
+          "C": 9
+        },
+        "channel_tasks": {
+          "A": {
+            "task": "用SDK完成3个API调用",
+            "requirements": ["成功调用OpenAI API", "处理基本错误", "输出结果"],
+            "deliverables": ["调用代码", "运行截图", "简单报告"]
+          },
+          "B": {
+            "task": "手写HTTP并处理鉴权/限流",
+            "requirements": ["实现HTTP请求", "处理API鉴权", "实现错误重试", "限流控制"],
+            "deliverables": ["完整代码", "错误处理机制", "测试用例"]
+          },
+          "C": {
+            "task": "封装可复用SDK并发布包",
+            "requirements": ["SDK架构设计", "完整单元测试", "文档编写", "发布到PyPI"],
+            "deliverables": ["SDK包", "完整文档", "使用示例", "PyPI链接"]
+          }
+        },
+        "checkpoint": {
+          "checkpoint_id": "api_calling_checkpoint",
+          "must_pass": ["能成功调用API", "能处理基本错误", "理解API限流机制"],
+          "evidence": ["代码仓库链接", "运行截图", "测试报告"],
+          "auto_grade": {
+            "success_rate": 0.9,
+            "response_time_ms": 2000,
+            "error_handling": true
+          }
+        },
+        "remedy_resources": {
+          "微课": ["API调用基础", "错误处理最佳实践", "限流与重试机制"],
+          "引导题": ["练习API调用", "处理不同错误类型", "实现指数退避"],
+          "对照示例": ["标准API调用代码", "错误处理示例", "SDK封装示例"]
+        }
+      },
+      {
+        "id": "model_deployment",
+        "name": "模型部署",
+        "description": "学习如何部署AI模型",
+        "order": 2,
+        "prerequisites": ["api_calling"],
+        "estimated_hours": {
+          "A": 6,
+          "B": 12,
+          "C": 20
+        },
+        "difficulty_level": {
+          "A": 4,
+          "B": 7,
+          "C": 9
+        },
+        "channel_tasks": {
+          "A": {
+            "task": "Ollama本地拉起模型",
+            "requirements": ["安装Ollama", "成功运行模型", "基本调用测试"],
+            "deliverables": ["部署截图", "调用代码", "测试结果"]
+          },
+          "B": {
+            "task": "Docker化并开放REST接口",
+            "requirements": ["编写Dockerfile", "构建镜像", "REST API", "接口文档"],
+            "deliverables": ["Docker镜像", "API文档", "部署脚本"]
+          },
+          "C": {
+            "task": "GPU/并发优化与压测",
+            "requirements": ["GPU加速配置", "并发处理", "性能测试", "负载均衡"],
+            "deliverables": ["优化报告", "压测结果", "部署方案"]
+          }
+        },
+        "checkpoint": {
+          "checkpoint_id": "model_deployment_checkpoint",
+          "must_pass": ["能本地部署模型", "能配置基本参数", "理解模型推理过程"],
+          "evidence": ["部署文档", "运行演示", "性能测试"],
+          "auto_grade": {
+            "deployment_success": true,
+            "response_time_ms": 5000,
+            "memory_usage_mb": 2048
+          }
+        },
+        "remedy_resources": {
+          "微课": ["模型部署基础", "Docker容器化", "性能优化技巧"],
+          "引导题": ["本地部署练习", "容器化实践", "性能测试"],
+          "对照示例": ["部署脚本模板", "Dockerfile示例", "监控配置"]
+        }
+      },
+      {
+        "id": "no_code_ai",
+        "name": "零代码配置AI应用",
+        "description": "使用无代码平台构建AI应用",
+        "order": 3,
+        "prerequisites": ["model_deployment"],
+        "estimated_hours": {
+          "A": 3,
+          "B": 6,
+          "C": 12
+        },
+        "difficulty_level": {
+          "A": 2,
+          "B": 4,
+          "C": 7
+        },
+        "channel_tasks": {
+          "A": {
+            "task": "Dify搭建基础Flow",
+            "requirements": ["创建基础对话Flow", "连接LLM", "测试功能"],
+            "deliverables": ["Flow截图", "测试对话", "功能演示"]
+          },
+          "B": {
+            "task": "引入工具调用与变量",
+            "requirements": ["集成工具调用", "变量管理", "条件分支", "复杂Flow"],
+            "deliverables": ["复杂Flow", "工具集成", "变量配置"]
+          },
+          "C": {
+            "task": "自定义插件扩展",
+            "requirements": ["开发自定义插件", "API集成", "插件文档", "分享发布"],
+            "deliverables": ["插件代码", "集成演示", "使用文档"]
+          }
+        },
+        "checkpoint": {
+          "checkpoint_id": "no_code_ai_checkpoint",
+          "must_pass": ["能创建AI应用Flow", "能配置基本功能", "能调试应用逻辑"],
+          "evidence": ["应用链接", "功能演示视频", "配置说明"],
+          "auto_grade": {
+            "basic_completion": true
+          }
+        },
+        "remedy_resources": {
+          "微课": ["无代码平台基础", "Flow设计原理", "插件开发指南"],
+          "引导题": ["创建简单Flow", "集成外部工具", "调试应用逻辑"],
+          "对照示例": ["Flow模板", "插件示例", "最佳实践"]
+        }
+      },
+      {
+        "id": "rag_system",
+        "name": "RAG系统",
+        "description": "构建检索增强生成系统",
+        "order": 4,
+        "prerequisites": ["no_code_ai"],
+        "estimated_hours": {
+          "A": 8,
+          "B": 16,
+          "C": 24
+        },
+        "difficulty_level": {
+          "A": 5,
+          "B": 8,
+          "C": 10
+        },
+        "channel_tasks": {
+          "A": {
+            "task": "用LangChain现成模块",
+            "requirements": ["文档加载", "向量存储", "基础检索", "简单问答"],
+            "deliverables": ["RAG系统", "查询演示", "简单UI"]
+          },
+          "B": {
+            "task": "手搓Embedding+FAISS",
+            "requirements": ["自实现Embedding", "FAISS索引", "检索算法", "相关性排序"],
+            "deliverables": ["检索系统", "性能测试", "对比分析"]
+          },
+          "C": {
+            "task": "加入重排序/多向量检索",
+            "requirements": ["重排序算法", "多向量融合", "检索优化", "评估系统"],
+            "deliverables": ["高级检索系统", "性能报告", "优化方案"]
+          }
+        },
+        "checkpoint": {
+          "checkpoint_id": "rag_system_checkpoint",
+          "must_pass": ["能独立构建索引", "能解释召回与精排差异", "能评估检索效果"],
+          "evidence": ["系统演示", "性能评估报告", "技术说明文档"],
+          "auto_grade": {
+            "unit_test_coverage": 0.8,
+            "latency_ms_at_k5": 800,
+            "relevance_score": 0.7
+          }
+        },
+        "remedy_resources": {
+          "微课": ["向量数据库原理", "检索算法优化", "评估方法"],
+          "引导题": ["构建简单索引", "实现检索排序", "评估检索质量"],
+          "对照示例": ["RAG系统架构", "检索优化代码", "评估脚本"]
+        }
+      },
+      {
+        "id": "ui_design",
+        "name": "UI设计",
+        "description": "设计用户界面",
+        "order": 5,
+        "prerequisites": ["rag_system"],
+        "estimated_hours": {
+          "A": 6,
+          "B": 12,
+          "C": 18
+        },
+        "difficulty_level": {
+          "A": 3,
+          "B": 6,
+          "C": 8
+        },
+        "channel_tasks": {
+          "A": {
+            "task": "使用模板快速搭建",
+            "requirements": ["选择合适模板", "基础修改", "颜色调整", "内容替换"],
+            "deliverables": ["设计稿", "色彩方案", "组件库"]
+          },
+          "B": {
+            "task": "遵循设计规范进行定制",
+            "requirements": ["遵循Material Design", "可访问性设计", "交互规范", "用户测试"],
+            "deliverables": ["设计系统", "原型图", "用户测试报告"]
+          },
+          "C": {
+            "task": "实现响应式布局与交互优化",
+            "requirements": ["响应式设计", "高级交互", "动效设计", "性能优化"],
+            "deliverables": ["完整设计系统", "交互演示", "设计文档"]
+          }
+        },
+        "checkpoint": {
+          "checkpoint_id": "ui_design_checkpoint",
+          "must_pass": ["遵循设计规范", "满足可访问性要求", "通过用户测试"],
+          "evidence": ["设计稿", "原型链接", "用户测试报告"],
+          "auto_grade": {
+            "accessibility_score": 0.8,
+            "performance_score": 0.7,
+            "design_consistency": true
+          }
+        },
+        "remedy_resources": {
+          "微课": ["UI设计基础", "设计规范", "可访问性设计"],
+          "引导题": ["设计练习", "原型制作", "用户测试"],
+          "对照示例": ["设计系统模板", "交互示例", "最佳实践"]
+        }
+      },
+      {
+        "id": "frontend_dev",
+        "name": "前端开发",
+        "description": "开发前端应用",
+        "order": 6,
+        "prerequisites": ["ui_design"],
+        "estimated_hours": {
+          "A": 10,
+          "B": 20,
+          "C": 30
+        },
+        "difficulty_level": {
+          "A": 4,
+          "B": 7,
+          "C": 9
+        },
+        "channel_tasks": {
+          "A": {
+            "task": "使用框架模板二开",
+            "requirements": ["框架模板使用", "基础组件", "简单交互", "基本部署"],
+            "deliverables": ["前端应用", "功能演示", "部署链接"]
+          },
+          "B": {
+            "task": "从零搭建React/Vue应用",
+            "requirements": ["项目搭建", "组件开发", "状态管理", "路由配置"],
+            "deliverables": ["完整应用", "代码仓库", "技术文档"]
+          },
+          "C": {
+            "task": "集成状态管理与性能优化",
+            "requirements": ["Redux/Vuex", "性能优化", "代码分割", "PWA特性"],
+            "deliverables": ["高级应用", "性能报告", "优化方案"]
+          }
+        },
+        "checkpoint": {
+          "checkpoint_id": "frontend_dev_checkpoint",
+          "must_pass": ["功能完整可用", "代码规范良好", "性能达标"],
+          "evidence": ["在线演示", "代码仓库", "技术文档"],
+          "auto_grade": {
+            "lighthouse_score": 80,
+            "test_coverage": 0.7,
+            "build_success": true
+          }
+        },
+        "remedy_resources": {
+          "微课": ["前端框架基础", "组件开发", "性能优化"],
+          "引导题": ["项目搭建练习", "组件开发", "性能测试"],
+          "对照示例": ["项目模板", "组件库", "优化方案"]
+        }
+      },
+      {
+        "id": "backend_dev",
+        "name": "后端开发",
+        "description": "开发后端服务",
+        "order": 7,
+        "prerequisites": ["frontend_dev"],
+        "estimated_hours": {
+          "A": 12,
+          "B": 24,
+          "C": 36
+        },
+        "difficulty_level": {
+          "A": 5,
+          "B": 8,
+          "C": 10
+        },
+        "channel_tasks": {
+          "A": {
+            "task": "使用FastAPI/Flask模板",
+            "requirements": ["API模板使用", "基础路由", "简单数据库", "基本部署"],
+            "deliverables": ["后端服务", "API文档", "部署演示"]
+          },
+          "B": {
+            "task": "从零搭建RESTful API",
+            "requirements": ["API设计", "数据库设计", "认证鉴权", "错误处理"],
+            "deliverables": ["完整API服务", "数据库设计", "接口文档"]
+          },
+          "C": {
+            "task": "集成MCP/Agent框架与权限/日志",
+            "requirements": ["Agent框架集成", "复杂权限系统", "完整日志", "监控系统"],
+            "deliverables": ["企业级后端", "监控报告", "运维方案"]
+          }
+        },
+        "checkpoint": {
+          "checkpoint_id": "backend_dev_checkpoint",
+          "must_pass": ["API接口完整", "数据安全可靠", "错误处理完善"],
+          "evidence": ["API文档", "部署说明", "测试用例"],
+          "auto_grade": {
+            "api_test_pass_rate": 0.9,
+            "security_scan_pass": true,
+            "performance_benchmark": true
+          }
+        },
+        "remedy_resources": {
+          "微课": ["后端开发基础", "API设计", "安全最佳实践"],
+          "引导题": ["API开发练习", "数据库设计", "安全测试"],
+          "对照示例": ["API模板", "安全配置", "监控方案"]
+        }
+      }
+    ]
+  }
+}
