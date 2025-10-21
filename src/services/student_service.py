@@ -1,12 +1,12 @@
 """学生信息服务"""
 
 import logging
-import json
 from datetime import datetime
-from pathlib import Path
 from typing import List, Optional, Dict, Any
 
 from ..models.student_auth import StudentAccount, DiagnosticRecord
+from ..services.db_service import StudentDBService, DiagnosticDBService, AssessmentDBService
+from ..models.db_models import Diagnostic, DiagnosticItem
 
 logger = logging.getLogger(__name__)
 
@@ -23,18 +23,13 @@ class StudentService:
     管理学生的诊断历史、学习记录等信息
     """
     
-    def __init__(self, storage_path: str = "./data/students"):
+    def __init__(self):
         """
         初始化学生服务
-        
-        Args:
-            storage_path: 数据存储路径
         """
-        self.storage_path = Path(storage_path)
-        self.storage_path.mkdir(parents=True, exist_ok=True)
-        
-        self.diagnostic_path = self.storage_path / "diagnostics"
-        self.diagnostic_path.mkdir(exist_ok=True)
+        self.student_db = StudentDBService()
+        self.diagnostic_db = DiagnosticDBService()
+        self.assessment_db = AssessmentDBService()
         
         logger.info("👤 学生信息服务已初始化")
     
@@ -49,21 +44,47 @@ class StudentService:
             是否成功
         """
         try:
-            # 学生诊断记录文件
-            student_diagnostic_file = self.diagnostic_path / f"{record.student_id}.json"
+            # 创建诊断记录
+            # 计算总体得分（基于各维度分数的平均值）
+            overall_score = (record.concept_score + record.coding_score + record.tool_familiarity) / 3
             
-            # 加载现有记录
-            records = []
-            if student_diagnostic_file.exists():
-                with open(student_diagnostic_file, 'r', encoding='utf-8') as f:
-                    records = json.load(f)
+            diagnostic_data = {
+                'diagnostic_id': record.test_id,
+                'student_id': record.student_id,
+                'diagnostic_type': 'comprehensive',
+                'overall_score': overall_score,
+                'concept_score': record.concept_score,
+                'coding_score': record.coding_score,
+                'tool_familiarity': record.tool_familiarity,
+                'skill_scores': getattr(record, 'skill_scores', {}),
+                'learning_style_preference': getattr(record, 'learning_style_preference', record.learning_style),
+                'time_budget_hours_per_week': getattr(record, 'time_budget_hours_per_week', 6),
+                'goals': getattr(record, 'goals', []),
+                'interests': record.interests,
+                'recommendations': getattr(record, 'recommendations', []),
+                'created_at': record.submitted_at
+            }
             
-            # 添加新记录
-            records.append(record.to_dict())
+            diagnostic = self.diagnostic_db.create_diagnostic(diagnostic_data)
             
-            # 保存
-            with open(student_diagnostic_file, 'w', encoding='utf-8') as f:
-                json.dump(records, f, ensure_ascii=False, indent=2)
+            # 保存诊断题目明细（如果存在）
+            diagnostic_items = getattr(record, 'diagnostic_items', [])
+            for item in diagnostic_items:
+                item_data = {
+                    'diagnostic_id': record.test_id,
+                    'item_id': item.get('item_id', ''),
+                    'item_type': item.get('item_type', ''),
+                    'question': item.get('question', ''),
+                    'answer': item.get('answer', ''),
+                    'correct_answer': item.get('correct_answer', ''),
+                    'score': item.get('score'),
+                    'max_score': item.get('max_score', 100.0),
+                    'dimension': item.get('dimension', ''),
+                    'difficulty_level': item.get('difficulty_level'),
+                    'time_spent_seconds': item.get('time_spent_seconds'),
+                    'created_at': record.submitted_at
+                }
+                self.diagnostic_db.create_diagnostic_item(item_data)
             
             logger.info(f"✅ 保存诊断记录: {record.student_id} - {record.test_id}")
             return True
@@ -88,20 +109,17 @@ class StudentService:
             诊断记录列表
         """
         try:
-            student_diagnostic_file = self.diagnostic_path / f"{student_id}.json"
+            # 从数据库获取诊断记录（已经是字典格式）
+            records = self.diagnostic_db.get_student_diagnostics(
+                student_id, 
+                limit=limit or 10
+            )
             
-            if not student_diagnostic_file.exists():
-                return []
-            
-            with open(student_diagnostic_file, 'r', encoding='utf-8') as f:
-                records = json.load(f)
-            
-            # 按时间降序排序
-            records.sort(key=lambda x: x['submitted_at'], reverse=True)
-            
-            # 限制数量
-            if limit:
-                records = records[:limit]
+            # 转换字段名以保持API兼容性
+            for record in records:
+                record['test_id'] = record['diagnostic_id']
+                record['submitted_at'] = record['created_at'].isoformat() if record['created_at'] else None
+                record['created_at'] = record['created_at'].isoformat() if record['created_at'] else None
             
             logger.info(f"📊 获取诊断历史: {student_id}, 共{len(records)}条")
             return records
@@ -141,50 +159,61 @@ class StudentService:
             包含记录列表和总数的字典
         """
         try:
-            # 从assessments.json文件读取学习记录
-            assessments_file = Path("./storage/assessments.json")
-            if not assessments_file.exists():
-                return {"count": 0, "records": []}
+            # 从数据库获取评估记录
+            assessment_runs = self.assessment_db.get_student_assessment_runs(
+                student_id, 
+                limit=limit + offset
+            )
             
-            # 读取所有评估记录
-            with open(assessments_file, 'r', encoding='utf-8') as f:
-                all_assessments = json.load(f)
-            
-            # 筛选该学生的评估记录
+            # 转换为字典格式
             records = []
-            logger.info(f"📊 开始筛选学生 {student_id} 的评估记录，总记录数: {len(all_assessments)}")
-            
-            for assessment_id, assessment_data in all_assessments.items():
-                if assessment_data.get("student_id") == student_id:
-                    # 计算综合分数
-                    score_breakdown = assessment_data.get("score_breakdown", {})
-                    idea_score = score_breakdown.get("idea", 0)
-                    ui_score = score_breakdown.get("ui", 0)
-                    code_score = score_breakdown.get("code", 0)
-                    final_score = round((idea_score + ui_score + code_score) / 3, 1)
-                    
-                    # 包含完整评估数据的记录格式（不包含路径推荐）
-                    record = {
-                        "assessment_id": assessment_id,
-                        "student_id": assessment_data.get("student_id"),
-                        "submitted_at": assessment_data.get("created_at"),
-                        "created_at": assessment_data.get("created_at"),  # 添加created_at字段
-                        "final_score": final_score,
-                        "overall_score": final_score,  # 添加overall_score字段
-                        "status": assessment_data.get("status", "completed"),
-                        # 包含完整的评估结果数据
-                        "score_breakdown": assessment_data.get("score_breakdown", {}),
-                        "breakdown": assessment_data.get("score_breakdown", {}),  # 添加breakdown字段
-                        "detailed_scores": assessment_data.get("detailed_scores", {}),
-                        "diagnosis": assessment_data.get("diagnosis", []),
-                        "resources": assessment_data.get("resources", []),
-                        "exit_rules": assessment_data.get("exit_rules", {}),
-                        "comprehensive_feedback": assessment_data.get("comprehensive_feedback", ""),
-                        "deliverables": assessment_data.get("deliverables", {}),
-                        "raw_data": assessment_data  # 保留原始数据以备需要
-                        # 注意：移除了 path_recommendation 字段
+            for run in assessment_runs:
+                # 计算综合分数
+                idea_score = float(run['idea_score']) if run['idea_score'] else 0
+                ui_score = float(run['ui_score']) if run['ui_score'] else 0
+                code_score = float(run['code_score']) if run['code_score'] else 0
+                final_score = round((idea_score + ui_score + code_score) / 3, 1) if (idea_score + ui_score + code_score) > 0 else 0
+                
+                # 构建score_breakdown
+                score_breakdown = {
+                    "idea": idea_score,
+                    "ui": ui_score,
+                    "code": code_score
+                }
+                
+                record = {
+                    "assessment_id": run['run_id'],
+                    "student_id": run['student_id'],
+                    "submitted_at": run['created_at'].isoformat() if run['created_at'] else None,
+                    "created_at": run['created_at'].isoformat() if run['created_at'] else None,
+                    "final_score": final_score,
+                    "overall_score": run['overall_score'] if run['overall_score'] else final_score,
+                    "status": run['status'],
+                    "score_breakdown": score_breakdown,
+                    "breakdown": score_breakdown,
+                    "detailed_scores": run['detailed_scores'] or {},
+                    "diagnosis": run['diagnosis'] or [],
+                    "resources": run['resources'] or [],
+                    "exit_rules": run['exit_rules'] or {},
+                    "comprehensive_feedback": "",
+                    "deliverables": {},
+                    "raw_data": {
+                        "run_id": run['run_id'],
+                        "student_id": run['student_id'],
+                        "assessment_id": run['assessment_id'],
+                        "node_id": run['node_id'],
+                        "channel": run['channel'],
+                        "status": run['status'],
+                        "overall_score": run['overall_score'],
+                        "idea_score": idea_score,
+                        "ui_score": ui_score,
+                        "code_score": code_score,
+                        "assessment_level": run['assessment_level'],
+                        "created_at": run['created_at'].isoformat() if run['created_at'] else None,
+                        "completed_at": run['completed_at'].isoformat() if run['completed_at'] else None
                     }
-                    records.append(record)
+                }
+                records.append(record)
             
             # 按时间降序排序
             records.sort(key=lambda x: x['submitted_at'], reverse=True)

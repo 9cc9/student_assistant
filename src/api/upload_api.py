@@ -56,10 +56,19 @@ async def upload_project_files(
         logger.info(f"开始处理文件上传，学生: {student_id}, 文件数: {len(files)}")
         
         # 处理上传的文件
+        logger.info(f"📁 开始处理文件上传，学生: {student_id}, 文件数: {len(files)}")
         upload_result = await file_service.process_uploaded_files(files, student_id)
+        logger.info(f"📁 文件处理完成: {upload_result['upload_path']}")
         
         # 获取项目摘要用于评估
         project_summary = file_service.get_project_summary(upload_result["upload_path"])
+        logger.info(f"📁 项目摘要生成完成:")
+        logger.info(f"    主要语言: {project_summary.get('main_language', 'None')}")
+        logger.info(f"    总文件数: {project_summary.get('total_files', 0)}")
+        logger.info(f"    代码行数: {project_summary.get('lines_of_code', 0)}")
+        logger.info(f"    代码示例数量: {len(project_summary.get('code_samples', {}))}")
+        for file_name in list(project_summary.get('code_samples', {}).keys())[:3]:
+            logger.info(f"      示例文件: {file_name}")
         
         # 构建评估请求数据
         assessment_data = {
@@ -75,10 +84,46 @@ async def upload_project_files(
         # 提交给评估系统
         assessment_result = await gateway_service.submit_for_assessment(assessment_data)
         
+        # 创建提交记录到数据库
+        from ..services.db_service import SubmissionDBService
+        submission_db = SubmissionDBService()
+        
+        code_snippets = list(project_summary["code_samples"].values())[:3]
+        submission_data = {
+            'submission_id': f"upload_{upload_result['timestamp'].replace(':', '').replace('-', '')}",
+            'student_id': student_id,
+            'assessment_run_id': assessment_result["assessment_id"],
+            'node_id': 'file_upload',  # 默认节点ID
+            'channel': 'B',  # 默认通道
+            'submission_type': 'file_upload',
+            'file_path': upload_result["upload_path"],
+            'file_type': 'project',
+            'file_size': 0,  # 暂时设为0
+            'idea_text': idea_text,
+            'code_repo': upload_result["upload_path"],
+            'code_snippets': code_snippets
+        }
+        
+        logger.info(f"📊 准备创建提交记录:")
+        logger.info(f"    提交ID: {submission_data['submission_id']}")
+        logger.info(f"    学生ID: {submission_data['student_id']}")
+        logger.info(f"    评估ID: {submission_data['assessment_run_id']}")
+        logger.info(f"    文件路径: {submission_data['file_path']}")
+        logger.info(f"    文件类型: {submission_data['file_type']}")
+        logger.info(f"    创意文本长度: {len(submission_data['idea_text'])}")
+        logger.info(f"    代码片段数量: {len(submission_data['code_snippets'])}")
+        
+        try:
+            submission_db.create_submission(submission_data)
+            logger.info(f"✅ 提交记录创建成功: {submission_data['submission_id']}")
+        except Exception as e:
+            logger.error(f"❌ 创建提交记录失败: {str(e)}")
+            logger.error(f"    提交数据: {submission_data}")
+        
         logger.info(f"项目文件上传和评估提交成功: {assessment_result['assessment_id']}")
         
         return ProjectSubmissionResponse(
-            submission_id=f"upload_{upload_result['timestamp'].replace(':', '').replace('-', '')}",
+            submission_id=submission_data['submission_id'],
             student_id=student_id,
             project_path=upload_result["upload_path"],
             analysis=upload_result["analysis"],

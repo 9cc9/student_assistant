@@ -32,11 +32,19 @@ class IdeaEvaluator(BaseEvaluator):
             评估结果字典
         """
         try:
+            logger.info(f"💡 创意评估器开始评估:")
+            logger.info(f"    接收到的数据键: {list(data.keys())}")
+            
             # 提取数据
             idea_text = data.get("idea_text", "")
             technical_stack = data.get("technical_stack", [])
             target_users = data.get("target_users", "")
             core_features = data.get("core_features", [])
+            
+            logger.info(f"    创意文本长度: {len(idea_text)}")
+            logger.info(f"    技术栈: {technical_stack}")
+            logger.info(f"    目标用户: {target_users}")
+            logger.info(f"    核心功能: {core_features}")
             
             if not idea_text:
                 raise EvaluatorError("缺少创意描述文本")

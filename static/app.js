@@ -349,7 +349,10 @@ createApp({
                 const response = await fetch('/api/learning-path/path/info')
                 if (response.ok) {
                     const data = await response.json()
-                    this.learningNodes = data.nodes
+                    this.learningNodes = data.nodes || []
+                    console.log('学习路径节点加载成功:', this.learningNodes.length, '个节点')
+                } else {
+                    console.error('加载学习路径失败:', response.status, response.statusText)
                 }
             } catch (error) {
                 console.error('加载学习路径失败:', error)
@@ -415,11 +418,19 @@ createApp({
                     
                     // 更新当前任务信息
                     if (result.current_task) {
+                        // 直接赋值，Vue 3会自动处理响应式更新
                         this.currentTask = result.current_task
+                        console.log('✅ 当前任务已更新:', this.currentTask)
                     }
                     
-                    // 重新加载学习进度以保持数据同步
+                    // 重新加载学习进度以保持数据同步，但保持当前任务不变
                     await this.loadStudentProgress()
+                    
+                    // 确保当前任务保持更新后的状态
+                    if (result.current_task) {
+                        this.currentTask = result.current_task
+                        console.log('✅ 当前任务状态已确认:', this.currentTask)
+                    }
                     
                 } else {
                     const error = await response.json()
@@ -859,6 +870,7 @@ createApp({
         },
         
         scrollToResult() {
+            // Vue 3 中使用 nextTick
             this.$nextTick(() => {
                 const element = document.querySelector('.result-card')
                 if (element) {
@@ -1423,5 +1435,8 @@ createApp({
         
         // 预加载诊断测试题目
         await this.loadDiagnosticQuestions()
+        
+        // 预加载学习路径数据
+        await this.loadLearningPath()
     }
 }).mount('#app')

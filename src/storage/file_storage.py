@@ -6,6 +6,8 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 import logging
 
+from ..services.db_service import AssessmentDBService
+
 logger = logging.getLogger(__name__)
 
 
@@ -16,9 +18,12 @@ class FileStorage:
         self.storage_dir = Path(storage_dir)
         self.storage_dir.mkdir(exist_ok=True)
         
-        # 评估记录存储文件
+        # 评估记录存储文件（保留作为备份）
         self.assessments_file = self.storage_dir / "assessments.json"
         self._load_assessments()
+        
+        # 数据库服务
+        self.assessment_db = AssessmentDBService()
     
     def _load_assessments(self) -> None:
         """加载评估记录"""
@@ -147,8 +152,90 @@ class FileStorage:
     def save_assessment(self, assessment_id: str, assessment: Any) -> None:
         """保存单个评估记录"""
         try:
+            # 保存到数据库
+            if hasattr(assessment, '__dict__'):
+                assessment_data = assessment.__dict__.copy()
+            else:
+                assessment_data = assessment
+            
+            # 安全获取score_breakdown
+            score_breakdown = assessment_data.get('score_breakdown')
+            if score_breakdown is None:
+                score_breakdown = {}
+            elif hasattr(score_breakdown, '__dict__'):
+                score_breakdown = score_breakdown.__dict__
+            
+            # 安全获取status
+            status = assessment_data.get('status')
+            if hasattr(status, 'value'):
+                status = status.value
+            elif status is None:
+                status = 'queued'
+            
+            # 安全获取assessment_level
+            assessment_level = assessment_data.get('assessment_level')
+            if hasattr(assessment_level, 'value'):
+                assessment_level = assessment_level.value
+            
+            # 先创建或获取Assessment记录
+            assessment_record_id = assessment_data.get('assessment_id', 'default')
+            try:
+                # 尝试获取现有的Assessment记录
+                existing_assessment = self.assessment_db.get_assessment(assessment_record_id)
+                if not existing_assessment:
+                    # 创建新的Assessment记录
+                    assessment_data_for_db = {
+                        'assessment_id': assessment_record_id,
+                        'name': f'评估规则_{assessment_record_id}',
+                        'description': '自动创建的评估规则',
+                        'assessment_type': 'comprehensive',
+                        'node_id': assessment_data.get('node_id', ''),
+                        'channel': assessment_data.get('channel', 'B'),
+                        'rubric': {},
+                        'weight_idea': 0.30,
+                        'weight_ui': 0.30,
+                        'weight_code': 0.40,
+                        'pass_threshold': 60.0,
+                        'excellent_threshold': 85.0,
+                        'max_retries': 3,
+                        'is_active': True,
+                        'version': '1.0'
+                    }
+                    self.assessment_db.create_assessment(assessment_data_for_db)
+            except Exception as e:
+                logger.warning(f"创建Assessment记录失败，使用默认记录: {str(e)}")
+                assessment_record_id = 'default'
+            
+            # 创建AssessmentRun记录
+            run_data = {
+                'run_id': assessment_id,
+                'student_id': assessment_data.get('student_id', ''),
+                'assessment_id': assessment_record_id,
+                'node_id': assessment_data.get('node_id', ''),
+                'channel': assessment_data.get('channel', 'B'),
+                'status': status,
+                'overall_score': assessment_data.get('overall_score'),
+                'idea_score': score_breakdown.get('idea'),
+                'ui_score': score_breakdown.get('ui'),
+                'code_score': score_breakdown.get('code'),
+                'detailed_scores': assessment_data.get('detailed_scores'),
+                'assessment_level': assessment_level,
+                'diagnosis': assessment_data.get('diagnosis'),
+                'resources': assessment_data.get('resources'),
+                'exit_rules': assessment_data.get('exit_rules'),
+                'error_message': assessment_data.get('error_message'),
+                'started_at': assessment_data.get('started_at'),
+                'completed_at': assessment_data.get('completed_at'),
+                'created_at': assessment_data.get('created_at', datetime.utcnow()),
+                'updated_at': assessment_data.get('updated_at', datetime.utcnow())
+            }
+            
+            self.assessment_db.create_assessment_run(run_data)
+            
+            # 同时保存到文件作为备份
             self._assessments[assessment_id] = assessment
             self._save_assessments()
+            
             logger.info(f"📂 ✅ 保存评估记录: {assessment_id}")
         except Exception as e:
             logger.error(f"📂 ❌ 保存评估记录失败: {assessment_id}, {str(e)}")
@@ -185,6 +272,12 @@ class FileStorage:
             if 'deliverables' in data and isinstance(data['deliverables'], dict):
                 deliverables_data = data['deliverables']
                 data['deliverables'] = Deliverables(**deliverables_data)
+            
+            # 处理ScoreBreakdown对象
+            if 'score_breakdown' in data and isinstance(data['score_breakdown'], dict):
+                from ..models.assessment import ScoreBreakdown
+                score_breakdown_data = data['score_breakdown']
+                data['score_breakdown'] = ScoreBreakdown(**score_breakdown_data)
             
             # 创建Assessment对象（只包含必需的字段）
             required_fields = ['assessment_id', 'student_id', 'deliverables', 'status', 'created_at']

@@ -24,8 +24,7 @@ async def lifespan(app: FastAPI):
     print("🚀 AI助教评估系统正在启动...")
     print(f"⚙️  环境: {settings.environment}")
     print(f"🔧 调试模式: {settings.debug}")
-    print(f"📊 数据库: {settings.database_url}")
-    
+
     # 这里可以初始化数据库连接、缓存等
     # await init_database()
     # await init_cache()

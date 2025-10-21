@@ -610,9 +610,10 @@ async def switch_student_channel(
         progress.last_activity_at = datetime.now()
         progress.updated_at = datetime.now()
         
-        # 保存更新
-        logger.info(f"📚 保存学生进度更新")
-        path_service._save_student_progresses()
+        # 保存更新到数据库
+        logger.info(f"📚 保存学生进度更新到数据库")
+        from src.services.progress_repository import ProgressRepository
+        ProgressRepository.update_student_progress(progress)
         
         # 获取更新后的任务信息
         logger.info(f"📚 获取更新后的任务信息")

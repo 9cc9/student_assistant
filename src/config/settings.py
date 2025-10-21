@@ -23,22 +23,6 @@ class AIConfig:
 
 
 @dataclass
-class DatabaseConfig:
-    """数据库配置"""
-    # 关系数据库配置（SQLite用于开发）
-    database_url: str = "sqlite:///./student_assistant.db"
-    
-    # 向量数据库配置（FAISS）
-    vector_db_path: str = "./data/vector_db"
-    vector_index_path: str = "./data/vector_db/index.faiss"
-    
-    # Neo4j知识图谱配置
-    neo4j_uri: str = os.getenv("NEO4J_URI", "bolt://localhost:7687")
-    neo4j_user: str = os.getenv("NEO4J_USER", "neo4j")
-    neo4j_password: str = os.getenv("NEO4J_PASSWORD", "password")
-
-
-@dataclass
 class AssessmentConfig:
     """评估配置"""
     # 评分权重
@@ -149,7 +133,6 @@ class SystemConfig:
 
 # 全局配置实例
 ai_config = AIConfig()
-db_config = DatabaseConfig()
 assessment_config = AssessmentConfig()
 path_config = PathConfig()
 system_config = SystemConfig()

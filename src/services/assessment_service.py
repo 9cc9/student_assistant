@@ -6,6 +6,7 @@ from datetime import datetime
 import uuid
 
 from ..storage.file_storage import get_storage
+from ..services.db_service import AssessmentDBService
 
 from ..models.assessment import (
     Assessment, AssessmentStatus, Deliverables, ScoreBreakdown
@@ -34,17 +35,15 @@ class AssessmentService:
             self.code_reviewer = CodeReviewer()
             self.score_aggregator = ScoreAggregator()
             self.learning_path_service = LearningPathService()
+            self.db_service = AssessmentDBService()
             
             self._initialized = True
             
         # 确保 storage 属性始终存在（处理单例重启问题）
         if not hasattr(self, 'storage'):
             self.storage = get_storage()
-            self.assessments = self.storage.list_assessments()
-            logger.info(f"📋 AssessmentService 存储已初始化，加载了 {len(self.assessments)} 条历史记录")
-        elif not hasattr(self, 'assessments'):
-            self.assessments = self.storage.list_assessments()
-            logger.info(f"📋 AssessmentService 评估记录已重新加载，共 {len(self.assessments)} 条")
+            logger.info(f"📋 AssessmentService 存储已初始化，使用数据库存储")
+        # 移除内存存储，完全使用数据库
         
         # 确保学习路径服务可用
         if not hasattr(self, 'learning_path_service'):
@@ -77,13 +76,37 @@ class AssessmentService:
                 created_at=datetime.now()
             )
             
-            # 存储评估记录（同时保存到文件）
-            self.assessments[assessment_id] = assessment
+            # 存储评估记录到数据库
             self.storage.save_assessment(assessment_id, assessment)
-            logger.info(f"📋 ✅ 评估记录已存储: {assessment_id}, 总记录数: {len(self.assessments)}")
+            logger.info(f"📋 ✅ 评估记录已存储到数据库: {assessment_id}")
             
-            # 异步执行评估
-            asyncio.create_task(self._execute_assessment(assessment_id))
+            # 同步执行评估（避免异步任务问题）
+            try:
+                import threading
+                def run_assessment():
+                    import asyncio
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        loop.run_until_complete(self._execute_assessment(assessment_id))
+                    finally:
+                        loop.close()
+                
+                # 在后台线程中执行评估
+                thread = threading.Thread(target=run_assessment, daemon=True)
+                thread.start()
+                logger.info(f"📋 🚀 评估任务已在后台线程中启动: {assessment_id}")
+            except Exception as e:
+                logger.error(f"📋 ❌ 启动评估任务失败: {str(e)}")
+                # 如果后台执行失败，至少更新状态为失败
+                try:
+                    self.db_service.update_assessment_run(assessment_id, {
+                        'status': 'failed',
+                        'error_message': f'启动评估任务失败: {str(e)}',
+                        'updated_at': datetime.utcnow()
+                    })
+                except:
+                    pass
             
             logger.info(f"评估请求已提交，ID: {assessment_id}")
             return assessment_id
@@ -103,17 +126,62 @@ class AssessmentService:
             评估状态信息
         """
         logger.info(f"📋 🔍 查询评估记录: {assessment_id}")
-        logger.info(f"📋 现有记录总数: {len(self.assessments)}")
-        logger.debug(f"📋 现有记录ID列表: {list(self.assessments.keys())}")
         
-        assessment = self.assessments.get(assessment_id)
-        if not assessment:
-            # 尝试从存储中重新加载
+        # 从数据库获取评估记录
+        try:
+            assessment_run = self.db_service.get_assessment_run(assessment_id)
+            if not assessment_run:
+                logger.error(f"📋 ❌ 评估记录不存在: {assessment_id}")
+                raise AssessmentServiceError(f"评估记录不存在: {assessment_id}")
+            
+            # 转换为前端需要的格式
+            assessment = {
+                "assessment_id": assessment_run['run_id'],
+                "student_id": assessment_run['student_id'],
+                "status": assessment_run['status'],
+                "created_at": assessment_run['created_at'].isoformat() if assessment_run['created_at'] else None,
+                "updated_at": assessment_run['updated_at'].isoformat() if assessment_run['updated_at'] else None,
+                "overall_score": assessment_run['overall_score'],
+                "idea_score": assessment_run['idea_score'],
+                "ui_score": assessment_run['ui_score'],
+                "code_score": assessment_run['code_score'],
+                "detailed_scores": assessment_run['detailed_scores'] or {},
+                "diagnosis": assessment_run['diagnosis'] or [],
+                "resources": assessment_run['resources'] or [],
+                "exit_rules": assessment_run['exit_rules'] or {},
+                "error_message": assessment_run['error_message'],
+                "started_at": assessment_run['started_at'].isoformat() if assessment_run['started_at'] else None,
+                "completed_at": assessment_run['completed_at'].isoformat() if assessment_run['completed_at'] else None
+            }
+            
+            # 构建breakdown数据
+            breakdown_data = {}
+            if assessment_run['idea_score'] is not None:
+                breakdown_data["idea"] = assessment_run['idea_score']
+            if assessment_run['ui_score'] is not None:
+                breakdown_data["ui"] = assessment_run['ui_score']
+            if assessment_run['code_score'] is not None:
+                breakdown_data["code"] = assessment_run['code_score']
+            
+            # 添加详细子维度分数
+            if assessment_run['detailed_scores']:
+                detailed_scores = assessment_run['detailed_scores']
+                if 'idea' in detailed_scores:
+                    breakdown_data["idea_detail"] = detailed_scores['idea']
+                if 'ui' in detailed_scores:
+                    breakdown_data["ui_detail"] = detailed_scores['ui']
+                if 'code' in detailed_scores:
+                    breakdown_data["code_detail"] = detailed_scores['code']
+            
+            assessment["breakdown"] = breakdown_data
+            
+            return assessment
+            
+        except Exception as e:
+            logger.error(f"从数据库获取评估记录失败: {str(e)}")
+            # 降级到文件存储
             assessment = self.storage.get_assessment(assessment_id)
-            if assessment:
-                self.assessments[assessment_id] = assessment
-                logger.info(f"📋 ♻️ 从存储中恢复评估记录: {assessment_id}")
-            else:
+            if not assessment:
                 logger.error(f"📋 ❌ 评估记录不存在: {assessment_id}")
                 raise AssessmentServiceError(f"评估记录不存在: {assessment_id}")
         
@@ -252,41 +320,111 @@ class AssessmentService:
         Returns:
             评估记录列表
         """
-        assessments = list(self.assessments.values())
-        
-        # 处理字典类型的评估记录
-        processed_assessments = []
-        for a in assessments:
-            if isinstance(a, dict):
-                # 如果是字典，直接使用assessment_id
-                assessment_id = a.get('assessment_id')
-                assessment_student_id = a.get('student_id')
-            else:
-                # 如果是对象，使用属性
-                assessment_id = a.assessment_id
-                assessment_student_id = a.student_id
+        try:
+            # 从数据库获取评估记录
+            assessment_runs = self.db_service.get_student_assessment_runs(
+                student_id or "", 
+                limit=1000  # 获取足够多的记录
+            )
             
-            if not student_id or assessment_student_id == student_id:
-                processed_assessments.append(assessment_id)
-        
-        return [self.get_assessment_status(aid) for aid in processed_assessments]
+            # 转换为前端需要的格式
+            processed_assessments = []
+            for run in assessment_runs:
+                # 计算综合分数
+                idea_score = float(run['idea_score']) if run['idea_score'] else 0
+                ui_score = float(run['ui_score']) if run['ui_score'] else 0
+                code_score = float(run['code_score']) if run['code_score'] else 0
+                final_score = round((idea_score + ui_score + code_score) / 3, 1) if (idea_score + ui_score + code_score) > 0 else 0
+                
+                # 构建score_breakdown
+                score_breakdown = {
+                    "idea": idea_score,
+                    "ui": ui_score,
+                    "code": code_score
+                }
+                
+                assessment_data = {
+                    "assessment_id": run['run_id'],
+                    "student_id": run['student_id'],
+                    "submitted_at": run['created_at'].isoformat() if run['created_at'] else None,
+                    "created_at": run['created_at'].isoformat() if run['created_at'] else None,
+                    "final_score": final_score,
+                    "overall_score": run['overall_score'] if run['overall_score'] else final_score,
+                    "status": run['status'],
+                    "score_breakdown": score_breakdown,
+                    "breakdown": score_breakdown,
+                    "detailed_scores": run['detailed_scores'] or {},
+                    "diagnosis": run['diagnosis'] or [],
+                    "resources": run['resources'] or [],
+                    "exit_rules": run['exit_rules'] or {},
+                    "comprehensive_feedback": "",
+                    "deliverables": {},
+                    "raw_data": {
+                        "run_id": run['run_id'],
+                        "student_id": run['student_id'],
+                        "assessment_id": run['assessment_id'],
+                        "node_id": run['node_id'],
+                        "channel": run['channel'],
+                        "status": run['status'],
+                        "overall_score": run['overall_score'],
+                        "idea_score": idea_score,
+                        "ui_score": ui_score,
+                        "code_score": code_score,
+                        "assessment_level": run['assessment_level'],
+                        "created_at": run['created_at'].isoformat() if run['created_at'] else None,
+                        "completed_at": run['completed_at'].isoformat() if run['completed_at'] else None
+                    }
+                }
+                processed_assessments.append(assessment_data)
+            
+            # 按时间降序排序
+            processed_assessments.sort(key=lambda x: x['created_at'], reverse=True)
+            
+            logger.info(f"📊 从数据库获取评估记录: {len(processed_assessments)} 条")
+            return processed_assessments
+            
+        except Exception as e:
+            logger.error(f"从数据库获取评估记录失败: {str(e)}")
+            # 降级到文件存储
+            try:
+                assessments = self.storage.list_assessments()
+                processed_assessments = []
+                for assessment_id, assessment in assessments.items():
+                    if isinstance(assessment, dict):
+                        assessment_student_id = assessment.get('student_id')
+                    else:
+                        assessment_student_id = assessment.student_id
+                    
+                    if not student_id or assessment_student_id == student_id:
+                        processed_assessments.append(assessment_id)
+                
+                return [self.get_assessment_status(aid) for aid in processed_assessments]
+            except Exception as fallback_error:
+                logger.error(f"降级到文件存储也失败: {str(fallback_error)}")
+                return []
     
     async def _execute_assessment(self, assessment_id: str):
         """
         异步执行评估流程
         """
         try:
-            assessment = self.assessments[assessment_id]
-            assessment.status = AssessmentStatus.IN_PROGRESS
-            assessment.updated_at = datetime.now()
+            # 从数据库获取评估记录
+            assessment_run = self.db_service.get_assessment_run(assessment_id)
+            if not assessment_run:
+                logger.error(f"📋 ❌ 评估记录不存在: {assessment_id}")
+                return
             
-            # 保存状态更新
-            self.storage.save_assessment(assessment_id, assessment)
+            # 更新状态到数据库
+            self.db_service.update_assessment_run(assessment_id, {
+                'status': 'in_progress',
+                'started_at': datetime.utcnow(),
+                'updated_at': datetime.utcnow()
+            })
             
             logger.info(f"📋 🚀 开始执行评估: {assessment_id}")
             
             # 构建评估数据
-            evaluation_data = self._prepare_evaluation_data(assessment)
+            evaluation_data = self._prepare_evaluation_data_from_db(assessment_run)
             logger.info(f"📋 📝 评估数据准备完成: {list(evaluation_data.keys())}")
             
             # 并行执行各维度评估
@@ -344,26 +482,32 @@ class AssessmentService:
             
             result = self.score_aggregator.aggregate_scores(evaluation_results)
             
-            # 更新评估状态
-            assessment.status = AssessmentStatus.COMPLETED
-            assessment.overall_score = result["overall_score"]
-            assessment.score_breakdown = result["score_breakdown"]
-            assessment.detailed_scores = result.get("detailed_scores")  # 保存详细评分
-            assessment.diagnosis = result["diagnoses"]
-            assessment.resources = result["resources"]
-            assessment.exit_rules = result["exit_rules"]
-            assessment.completed_at = datetime.now()
-            assessment.updated_at = datetime.now()
+            # 更新评估状态到数据库
+            update_data = {
+                'status': 'completed',
+                'overall_score': result["overall_score"],
+                'idea_score': result["score_breakdown"].idea,
+                'ui_score': result["score_breakdown"].ui,
+                'code_score': result["score_breakdown"].code,
+                'detailed_scores': result.get("detailed_scores", {}),
+                'diagnosis': result["diagnoses"],
+                'resources': result["resources"],
+                'exit_rules': {
+                    'pass_status': result["exit_rules"].pass_status,
+                    'path_update': result["exit_rules"].path_update,
+                    'remedy': result["exit_rules"].remedy
+                } if hasattr(result["exit_rules"], 'pass_status') else result["exit_rules"],
+                'completed_at': datetime.utcnow(),
+                'updated_at': datetime.utcnow()
+            }
             
-            # 更新存储的记录
-            self.assessments[assessment_id] = assessment
-            self.storage.save_assessment(assessment_id, assessment)
+            self.db_service.update_assessment_run(assessment_id, update_data)
             
             logger.info(f"📋 🎉 评估完成并保存: {assessment_id}, 总分: {result['overall_score']}")
             
             # 🆕 集成学习路径推荐系统（可通过配置开关控制）
             if path_config.enable_path_integration:
-                await self._update_learning_path(assessment_id, assessment)
+                await self._update_learning_path(assessment_id, assessment_run)
             else:
                 logger.info(f"📋 ℹ️ 学习路径集成已禁用，跳过路径更新: {assessment_id}")
             
@@ -372,19 +516,16 @@ class AssessmentService:
             logger.error(f"📋 ❌ 评估执行失败: {assessment_id}, 错误: {str(e)}")
             
             try:
-                if assessment_id in self.assessments:
-                    assessment = self.assessments[assessment_id]
-                    assessment.status = AssessmentStatus.FAILED
-                    if hasattr(assessment, 'error_message'):
-                        assessment.error_message = str(e)
-                    assessment.updated_at = datetime.now()
-                    
-                    # 保存错误状态
-                    self.storage.save_assessment(assessment_id, assessment)
+                # 更新数据库中的错误状态
+                self.db_service.update_assessment_run(assessment_id, {
+                    'status': 'failed',
+                    'error_message': str(e),
+                    'updated_at': datetime.utcnow()
+                })
             except Exception as save_error:
                 logger.error(f"📋 ❌ 保存错误状态失败: {str(save_error)}")
     
-    async def _update_learning_path(self, assessment_id: str, assessment):
+    async def _update_learning_path(self, assessment_id: str, assessment_run):
         """
         🆕 更新学习路径进度
         
@@ -393,35 +534,25 @@ class AssessmentService:
         2. 根据评估结果推荐下一步路径
         """
         try:
-            student_id = assessment.student_id
+            student_id = assessment_run.student_id
             
             # 从评估结果中推断当前学习的节点
-            current_node_id = self._infer_current_node(assessment.deliverables)
+            current_node_id = self._infer_current_node_from_db(assessment_run)
             
             # 构建评估结果数据
             assessment_result = {
-                "overall_score": assessment.overall_score,
+                "overall_score": float(assessment_run.overall_score) if assessment_run.overall_score else 0,
                 "breakdown": {
-                    "idea": assessment.score_breakdown.idea,
-                    "ui": assessment.score_breakdown.ui,
-                    "code": assessment.score_breakdown.code
+                    "idea": float(assessment_run.idea_score) if assessment_run.idea_score else 0,
+                    "ui": float(assessment_run.ui_score) if assessment_run.ui_score else 0,
+                    "code": float(assessment_run.code_score) if assessment_run.code_score else 0
                 },
-                "diagnosis": [
-                    {
-                        "dimension": d.dimension,
-                        "issue": d.issue,
-                        "fix": d.fix
-                    } for d in assessment.diagnosis
-                ],
-                "exit_rules": {
-                    "pass_status": assessment.exit_rules.pass_status,
-                    "path_update": assessment.exit_rules.path_update,
-                    "remedy": assessment.exit_rules.remedy
-                } if assessment.exit_rules else None
+                "diagnosis": assessment_run.diagnosis or [],
+                "exit_rules": assessment_run.exit_rules or {}
             }
             
             # 确定节点状态
-            if assessment.overall_score >= 60:  # 通过门槛
+            if assessment_run.overall_score and float(assessment_run.overall_score) >= 60:  # 通过门槛
                 node_status = NodeStatus.COMPLETED
             else:
                 node_status = NodeStatus.FAILED
@@ -507,9 +638,92 @@ class AssessmentService:
         """默认节点推断逻辑"""
         # 简单策略：返回最常见的节点或者按顺序推断
         return "api_calling"  # 默认为第一个节点
+    
+    def _infer_current_node_from_db(self, assessment_run) -> str:
+        """从数据库记录推断当前节点"""
+        # 使用节点ID字段，如果没有则使用默认推断
+        if assessment_run.node_id:
+            return assessment_run.node_id
+        return self._default_node_inference()
+
+    def _prepare_evaluation_data_from_db(self, assessment_run) -> Dict[str, Any]:
+        """从数据库记录准备评估数据"""
+        logger.info(f"📋 🔍 开始准备评估数据，评估ID: {assessment_run['run_id']}")
+        
+        # 从关联的提交记录获取详细信息
+        submissions = self.db_service.get_submissions_by_assessment_run(assessment_run['run_id'])
+        logger.info(f"📋 📊 找到 {len(submissions)} 条提交记录")
+        
+        # 构建评估数据
+        evaluation_data = {
+            # Idea相关数据
+            "idea_text": "",
+            "project_name": "项目",
+            "technical_stack": [],
+            "target_users": "用户",
+            "core_features": [],
+            
+            # UI相关数据
+            "ui_images": [],
+            "design_tool": "",
+            "design_system": "",
+            "color_palette": [],
+            "prototype_url": "",
+            
+            # 代码相关数据
+            "code_repo": "",
+            "language": "python",
+            "framework": "未指定",
+            "lines_of_code": 0,
+            "test_coverage": 0.0,
+            "code_snippets": []
+        }
+        
+        # 从提交记录中提取数据
+        for i, submission in enumerate(submissions):
+            logger.info(f"📋 📝 处理第 {i+1} 条提交记录:")
+            logger.info(f"    提交ID: {submission['submission_id']}")
+            logger.info(f"    提交类型: {submission['submission_type']}")
+            logger.info(f"    文件路径: {submission['file_path']}")
+            logger.info(f"    创意文本长度: {len(submission['idea_text']) if submission['idea_text'] else 0}")
+            logger.info(f"    代码仓库: {submission['code_repo']}")
+            logger.info(f"    代码片段数量: {len(submission['code_snippets']) if submission['code_snippets'] else 0}")
+            
+            if submission['idea_text']:
+                evaluation_data["idea_text"] = submission['idea_text']
+                logger.info(f"    ✅ 设置创意文本: {submission['idea_text'][:100]}...")
+            if submission['ui_images']:
+                evaluation_data["ui_images"] = submission['ui_images']
+                logger.info(f"    ✅ 设置UI图片: {len(submission['ui_images'])} 张")
+            if submission['code_repo']:
+                evaluation_data["code_repo"] = submission['code_repo']
+                logger.info(f"    ✅ 设置代码仓库: {submission['code_repo']}")
+            if submission['code_snippets']:
+                evaluation_data["code_snippets"] = submission['code_snippets']
+                logger.info(f"    ✅ 设置代码片段: {len(submission['code_snippets'])} 个文件")
+                if isinstance(submission['code_snippets'], list):
+                    for i, content in enumerate(submission['code_snippets'][:2]):  # 只显示前2个文件
+                        logger.info(f"      文件 {i+1}: (长度: {len(content)})")
+                elif isinstance(submission['code_snippets'], dict):
+                    for file_name, content in list(submission['code_snippets'].items())[:2]:  # 只显示前2个文件
+                        logger.info(f"      文件: {file_name} (长度: {len(content)})")
+        
+        logger.info(f"📋 📊 最终评估数据:")
+        logger.info(f"    创意文本: {evaluation_data['idea_text'][:50] if evaluation_data['idea_text'] else 'None'}...")
+        logger.info(f"    代码仓库: {evaluation_data['code_repo']}")
+        logger.info(f"    代码片段数量: {len(evaluation_data['code_snippets'])}")
+        if evaluation_data['code_snippets']:
+            if isinstance(evaluation_data['code_snippets'], list):
+                logger.info(f"    代码片段类型: 列表 ({len(evaluation_data['code_snippets'])} 个)")
+            elif isinstance(evaluation_data['code_snippets'], dict):
+                logger.info(f"    代码片段文件: {list(evaluation_data['code_snippets'].keys())}")
+        else:
+            logger.info(f"    代码片段文件: None")
+        
+        return evaluation_data
 
     def _prepare_evaluation_data(self, assessment: Assessment) -> Dict[str, Any]:
-        """准备评估数据"""
+        """准备评估数据（兼容性方法）"""
         deliverables = assessment.deliverables
         return {
             # Idea相关数据
@@ -554,16 +768,12 @@ class AssessmentService:
         Returns:
             导出结果
         """
-        assessment = self.assessments.get(assessment_id)
-        if not assessment:
-            # 尝试从存储中重新加载
-            assessment = self.storage.get_assessment(assessment_id)
-            if assessment:
-                self.assessments[assessment_id] = assessment
-            else:
-                raise AssessmentServiceError(f"评估记录不存在: {assessment_id}")
+        # 从数据库获取评估记录
+        assessment_run = self.db_service.get_assessment_run(assessment_id)
+        if not assessment_run:
+            raise AssessmentServiceError(f"评估记录不存在: {assessment_id}")
         
-        if assessment.status != AssessmentStatus.COMPLETED:
+        if assessment_run['status'] != 'completed':
             raise AssessmentServiceError(f"评估尚未完成: {assessment_id}")
         
         # 这里应该调用学习路径引擎的API

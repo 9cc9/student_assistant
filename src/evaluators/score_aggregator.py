@@ -65,7 +65,7 @@ class ScoreAggregator:
                 all_diagnoses.extend(result.get("diagnoses", []))
             
             # 按优先级排序诊断信息
-            all_diagnoses.sort(key=lambda d: d.priority if hasattr(d, 'priority') else 1)
+            all_diagnoses.sort(key=lambda d: d.get('priority', 1) if isinstance(d, dict) else (d.priority if hasattr(d, 'priority') else 1))
             
             # 聚合学习资源
             all_resources = []
@@ -248,12 +248,20 @@ class ScoreAggregator:
         
         # 基于诊断信息生成具体的补救措施
         for diagnosis in diagnoses[:5]:  # 取前5个最重要的诊断
-            if diagnosis.dimension.startswith("code."):
-                remedial_actions.append(f"代码改进：{diagnosis.fix}")
-            elif diagnosis.dimension.startswith("ui."):
-                remedial_actions.append(f"UI优化：{diagnosis.fix}")
-            elif diagnosis.dimension.startswith("idea."):
-                remedial_actions.append(f"创意完善：{diagnosis.fix}")
+            # 处理字典格式的诊断信息
+            if isinstance(diagnosis, dict):
+                dimension = diagnosis.get('dimension', '')
+                fix = diagnosis.get('fix', '')
+            else:
+                dimension = diagnosis.dimension
+                fix = diagnosis.fix
+            
+            if dimension.startswith("code."):
+                remedial_actions.append(f"代码改进：{fix}")
+            elif dimension.startswith("ui."):
+                remedial_actions.append(f"UI优化：{fix}")
+            elif dimension.startswith("idea."):
+                remedial_actions.append(f"创意完善：{fix}")
         
         return remedial_actions
     
@@ -297,7 +305,14 @@ class ScoreAggregator:
         if diagnoses:
             feedback_parts.append("\n🔧 改进建议：")
             for i, diagnosis in enumerate(diagnoses[:3], 1):  # 显示前3个最重要的建议
-                feedback_parts.append(f"{i}. {diagnosis.issue}：{diagnosis.fix}")
+                # 处理字典格式的诊断信息
+                if isinstance(diagnosis, dict):
+                    issue = diagnosis.get('issue', '')
+                    fix = diagnosis.get('fix', '')
+                else:
+                    issue = diagnosis.issue
+                    fix = diagnosis.fix
+                feedback_parts.append(f"{i}. {issue}：{fix}")
         
         return "\n".join(feedback_parts)
     

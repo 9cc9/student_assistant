@@ -43,6 +43,9 @@ class CodeReviewer(BaseEvaluator):
             评估结果字典
         """
         try:
+            logger.info(f"🔍 代码评估器开始评估:")
+            logger.info(f"    接收到的数据键: {list(data.keys())}")
+            
             # 提取数据
             repo_url = data.get("code_repo", data.get("repo_url", ""))
             language = data.get("language", "未指定")
@@ -51,7 +54,16 @@ class CodeReviewer(BaseEvaluator):
             test_coverage = data.get("test_coverage", 0.0)
             code_snippets = data.get("code_snippets", [])
             
+            logger.info(f"    代码仓库: {repo_url}")
+            logger.info(f"    编程语言: {language}")
+            logger.info(f"    框架: {framework}")
+            logger.info(f"    代码行数: {lines_of_code}")
+            logger.info(f"    代码片段数量: {len(code_snippets)}")
+            if code_snippets:
+                logger.info(f"    代码片段文件: {list(code_snippets.keys()) if isinstance(code_snippets, dict) else '列表格式'}")
+            
             if not repo_url and not code_snippets:
+                logger.error("❌ 缺少代码仓库链接或代码片段")
                 raise EvaluatorError("缺少代码仓库链接或代码片段")
             
             # 代码静态分析

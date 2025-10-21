@@ -7,10 +7,9 @@ from jose import jwt, JWTError
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any, Tuple
 import os
-import json
-from pathlib import Path
 
 from ..models.student_auth import StudentAccount, LoginSession, StudentStatus
+from ..services.db_service import StudentDBService
 
 logger = logging.getLogger(__name__)
 
@@ -27,15 +26,11 @@ class AuthService:
     提供学生注册、登录、登出、Token验证等功能
     """
     
-    def __init__(self, storage_path: str = "./data/students"):
+    def __init__(self):
         """
         初始化认证服务
-        
-        Args:
-            storage_path: 学生数据存储路径
         """
-        self.storage_path = Path(storage_path)
-        self.storage_path.mkdir(parents=True, exist_ok=True)
+        self.student_db = StudentDBService()
         
         # 密码加密上下文 - 抑制bcrypt版本警告
         with warnings.catch_warnings():
@@ -83,7 +78,30 @@ class AuthService:
             # 加密密码
             password_hash = self._hash_password(password)
             
-            # 创建学生账号
+            # 创建学生数据
+            student_data = {
+                'student_id': student_id,
+                'name': name,
+                'email': email or f"{student_id}@example.com",
+                'phone': None,
+                'password_hash': password_hash,
+                'level': 'L0',
+                'learning_style': 'examples_first',
+                'time_budget_hours_per_week': 6,
+                'weak_skills': [],
+                'interests': [],
+                'goals': [],
+                'mastery_scores': {},
+                'frustration_level': 0.0,
+                'retry_count': 0,
+                'created_at': datetime.utcnow(),
+                'updated_at': datetime.utcnow()
+            }
+            
+            # 保存到数据库
+            db_student = self.student_db.create_student(student_data)
+            
+            # 创建StudentAccount对象用于返回
             student = StudentAccount(
                 student_id=student_id,
                 name=name,
@@ -92,9 +110,6 @@ class AuthService:
                 status=StudentStatus.ACTIVE,
                 created_at=datetime.now()
             )
-            
-            # 保存学生信息
-            self._save_student(student)
             
             logger.info(f"✅ 学生注册成功: {student_id}")
             return True, "注册成功", student
@@ -121,25 +136,30 @@ class AuthService:
             (成功标志, 消息, Token, 学生账号)
         """
         try:
-            # 检查学生是否存在
-            student = self._load_student(student_id)
-            if not student:
+            # 检查学生是否存在并获取密码哈希
+            student_data = self.student_db.get_student_for_auth(student_id)
+            if not student_data:
                 return False, "学生ID或密码错误", None, None
             
             # 验证密码
-            if not self._verify_password(password, student.password_hash):
+            if not self._verify_password(password, student_data['password_hash']):
                 return False, "学生ID或密码错误", None, None
             
-            # 检查账号状态
-            if student.status != StudentStatus.ACTIVE:
-                return False, f"账号状态异常: {student.status.value}", None, None
+            # 创建StudentAccount对象用于验证
+            student = StudentAccount(
+                student_id=student_data['student_id'],
+                name=student_data['name'],
+                password_hash=student_data['password_hash'],
+                email=student_data['email'],
+                status=StudentStatus.ACTIVE,
+                created_at=student_data['created_at']
+            )
             
             # 生成JWT Token
             token = self._generate_token(student_id)
             
             # 更新最后登录时间
-            student.last_login = datetime.now()
-            self._save_student(student)
+            self.student_db.update_student(student_id, {'updated_at': datetime.utcnow()})
             
             # 创建会话
             session = LoginSession(
@@ -230,7 +250,24 @@ class AuthService:
         Returns:
             学生账号
         """
-        return self._load_student(student_id)
+        try:
+            db_student = self.student_db.get_student(student_id)
+            if not db_student:
+                return None
+            
+            # 转换为StudentAccount对象
+            student = StudentAccount(
+                student_id=db_student.student_id,
+                name=db_student.name,
+                password_hash="",  # 密码哈希不返回
+                email=db_student.email,
+                status=StudentStatus.ACTIVE,
+                created_at=db_student.created_at
+            )
+            return student
+        except Exception as e:
+            logger.error(f"获取学生信息失败: {str(e)}")
+            return None
     
     def update_last_login(self, student_id: str) -> bool:
         """
@@ -243,12 +280,8 @@ class AuthService:
             是否成功
         """
         try:
-            student = self._load_student(student_id)
-            if student:
-                student.last_login = datetime.now()
-                self._save_student(student)
-                return True
-            return False
+            self.student_db.update_student(student_id, {'updated_at': datetime.utcnow()})
+            return True
         except Exception as e:
             logger.error(f"更新登录时间失败: {str(e)}")
             return False
@@ -276,31 +309,12 @@ class AuthService:
     
     def _student_exists(self, student_id: str) -> bool:
         """检查学生是否存在"""
-        student_file = self.storage_path / f"{student_id}.json"
-        return student_file.exists()
-    
-    def _save_student(self, student: StudentAccount) -> None:
-        """保存学生信息"""
-        student_file = self.storage_path / f"{student.student_id}.json"
-        data = student.to_dict()
-        data["password_hash"] = student.password_hash  # 保存密码哈希
-        
-        with open(student_file, 'w', encoding='utf-8') as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-    
-    def _load_student(self, student_id: str) -> Optional[StudentAccount]:
-        """加载学生信息"""
-        student_file = self.storage_path / f"{student_id}.json"
-        if not student_file.exists():
-            return None
-        
         try:
-            with open(student_file, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-            return StudentAccount.from_dict(data)
+            db_student = self.student_db.get_student(student_id)
+            return db_student is not None
         except Exception as e:
-            logger.error(f"加载学生信息失败: {str(e)}")
-            return None
+            logger.error(f"检查学生是否存在失败: {str(e)}")
+            return False
 
 
 # 创建全局单例

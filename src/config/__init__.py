@@ -1,12 +1,10 @@
 """配置模块"""
 from .settings import (
     ai_config,
-    db_config, 
     assessment_config,
     path_config,
     system_config,
     AIConfig,
-    DatabaseConfig,
     AssessmentConfig,
     PathConfig,
     SystemConfig
@@ -31,9 +29,6 @@ def get_settings():
         # 日志配置
         log_level: str = system_config.log_level
         
-        # 数据库配置
-        database_url: str = db_config.database_url
-        
         # CORS配置
         cors_origins: list = ["*"]
         
@@ -48,7 +43,6 @@ __all__ = [
     "path_config",
     "system_config",
     "AIConfig",
-    "DatabaseConfig", 
     "AssessmentConfig",
     "PathConfig",
     "SystemConfig"
