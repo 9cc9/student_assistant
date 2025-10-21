@@ -446,7 +446,7 @@
             methods: {
                 async loadQuestions() {
                     try {
-                        const response = await fetch('/static/diagnostic_questions.json')
+                        const response = await fetch('/config/diagnostic_questions.json')
                         if (!response.ok) {
                             throw new Error('无法加载题目文件，请检查文件是否存在')
                         }

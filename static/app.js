@@ -106,7 +106,7 @@ createApp({
         // 预加载诊断测试题目（从JSON文件）
         async loadDiagnosticQuestions() {
             try {
-                const response = await fetch('/static/diagnostic_questions.json')
+                const response = await fetch('/config/diagnostic_questions.json')
                 if (!response.ok) {
                     throw new Error('Failed to load diagnostic questions')
                 }
