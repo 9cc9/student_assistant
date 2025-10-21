@@ -25,7 +25,8 @@ from .learning_path_api import (
     get_available_paths,
     get_path_statistics,
     switch_student_channel,
-    learning_path_health_check
+    learning_path_health_check,
+    clear_student_progress
 )
 from .diagnostic_api import (
     get_diagnostic_test,
@@ -68,6 +69,7 @@ learning_path_router.get("/path/info")(get_learning_path_info)
 learning_path_router.get("/paths")(get_available_paths)
 learning_path_router.get("/statistics")(get_path_statistics)
 learning_path_router.get("/health")(learning_path_health_check)
+learning_path_router.delete("/progress/{student_id}/clear")(clear_student_progress)
 
 # 创建诊断测试路由器
 diagnostic_router = APIRouter(prefix="/api/diagnostic", tags=["Diagnostic"])

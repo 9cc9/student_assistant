@@ -155,4 +155,30 @@ class ProgressRepository:
                 },
             )
 
+    @staticmethod
+    def clear_student_progress(student_id: str) -> None:
+        """清除学生的学习进度数据"""
+        with get_db_session_context() as session:
+            # 删除学生进度节点记录
+            session.execute(
+                text(
+                    """
+                    DELETE FROM student_progress_nodes 
+                    WHERE student_id = :sid
+                    """
+                ),
+                {"sid": student_id},
+            )
+            
+            # 删除学生全局进度记录
+            session.execute(
+                text(
+                    """
+                    DELETE FROM student_progress 
+                    WHERE student_id = :sid
+                    """
+                ),
+                {"sid": student_id},
+            )
+
 

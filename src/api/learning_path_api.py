@@ -652,6 +652,52 @@ async def switch_student_channel(
         raise HTTPException(status_code=500, detail=f"切换通道失败: {str(e)}")
 
 
+async def clear_student_progress(student_id: str) -> JSONResponse:
+    """
+    清除学生学习进度（用于重新开始学习）
+    
+    这个接口会删除学生的所有学习进度数据，包括：
+    - 全局学习进度
+    - 所有节点的学习状态
+    - 掌握度分数
+    - 重试次数等
+    
+    注意：此操作不可逆，请谨慎使用！
+    """
+    try:
+        logger.info(f"📚 开始清除学生学习进度: {student_id}")
+        
+        # 清除学习进度
+        cleared = await path_service.clear_student_progress(student_id)
+        
+        if not cleared:
+            return JSONResponse(
+                content={
+                    "student_id": student_id,
+                    "cleared": False,
+                    "message": "学生没有学习进度，无需清除"
+                },
+                status_code=200
+            )
+        
+        response_data = {
+            "student_id": student_id,
+            "cleared": True,
+            "message": "学习进度已成功清除，可以重新开始学习",
+            "cleared_at": datetime.now().isoformat()
+        }
+        
+        logger.info(f"📚 ✅ 学生学习进度清除成功: {student_id}")
+        return JSONResponse(content=response_data)
+        
+    except LearningPathServiceError as e:
+        logger.error(f"📚 ❌ 清除学习进度失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+    except Exception as e:
+        logger.error(f"📚 ❌ 清除学习进度异常: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"清除学习进度失败: {str(e)}")
+
+
 async def learning_path_health_check() -> JSONResponse:
     """学习路径系统健康检查"""
     try:

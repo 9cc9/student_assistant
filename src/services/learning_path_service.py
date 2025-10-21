@@ -293,6 +293,12 @@ class LearningPathService:
     ) -> StudentPathProgress:
         """为学生初始化学习路径进度"""
         
+        # 🔍 检查是否已有学习进度
+        existing_progress = ProgressRepository.get_student_progress(student_id)
+        if existing_progress:
+            logger.warning(f"📚 ⚠️ 学生 {student_id} 已有学习进度，跳过初始化")
+            raise LearningPathServiceError(f"学生 {student_id} 已有学习进度，无法重新初始化。如需重新开始学习，请先清除现有进度。")
+        
         # 根据学生水平确定起始通道
         initial_channel = self._determine_initial_channel(profile.level)
         
@@ -347,6 +353,24 @@ class LearningPathService:
         
         logger.info(f"📚 学生学习路径已初始化: {student_id}, 起始通道: {initial_channel.value}")
         return progress
+    
+    async def clear_student_progress(self, student_id: str) -> bool:
+        """清除学生学习进度（用于重新开始学习）"""
+        try:
+            # 检查是否存在学习进度
+            existing_progress = ProgressRepository.get_student_progress(student_id)
+            if not existing_progress:
+                logger.warning(f"📚 ⚠️ 学生 {student_id} 没有学习进度，无需清除")
+                return False
+            
+            # 清除学生进度数据
+            ProgressRepository.clear_student_progress(student_id)
+            logger.info(f"📚 ✅ 学生 {student_id} 的学习进度已清除")
+            return True
+            
+        except Exception as e:
+            logger.error(f"📚 ❌ 清除学习进度失败: {str(e)}")
+            raise LearningPathServiceError(f"清除学习进度失败: {str(e)}")
     
     def _determine_initial_channel(self, level: LearningLevel) -> Channel:
         """根据学习水平确定初始通道"""
