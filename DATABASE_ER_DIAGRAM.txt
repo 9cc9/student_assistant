@@ -1,0 +1,190 @@
+# 数据库实体关系图 (ER Diagram)
+
+## 核心实体关系
+
+```
+                    ┌─────────────────┐
+                    │    students     │
+                    │  (学生基础信息)  │
+                    │                 │
+                    │ student_id (PK) │
+                    │ name            │
+                    │ email (UK)      │
+                    │ level           │
+                    │ learning_style  │
+                    │ weak_skills     │
+                    │ interests       │
+                    │ goals           │
+                    └─────────────────┘
+                           │
+                           │ 1:1
+                           │
+                    ┌─────────────────┐
+                    │ student_progress│
+                    │  (学生全局进度)  │
+                    │                 │
+                    │ student_id (PK) │
+                    │ current_node_id │
+                    │ current_channel │
+                    │ total_study_hours│
+                    └─────────────────┘
+                           │
+                           │ 1:N
+                           │
+                    ┌─────────────────┐
+                    │student_progress_│
+                    │     nodes       │
+                    │  (节点进度详情)  │
+                    │                 │
+                    │ id (PK)         │
+                    │ student_id (FK) │
+                    │ node_id         │
+                    │ status          │
+                    │ score           │
+                    └─────────────────┘
+
+┌─────────────────┐
+│   diagnostics   │
+│   (诊断记录)     │
+│                 │
+│ id (PK)         │
+│ student_id (FK) │
+│ diagnostic_id   │
+│ overall_score   │
+│ concept_score   │
+│ coding_score    │
+└─────────────────┘
+         │
+         │ (已移除)
+         │
+~~┌─────────────────┐~~
+~~│ diagnostic_items│~~
+~~│  (诊断题目明细)  │~~
+~~│                 │~~
+~~│ id (PK)         │~~
+~~│ diagnostic_id(FK)│~~
+~~│ item_id         │~~
+~~│ question        │~~
+~~│ answer          │~~
+~~│ score           │~~
+~~└─────────────────┘~~
+
+┌─────────────────┐
+│   assessments   │
+│   (评分规则)     │
+│                 │
+│ id (PK)         │
+│ assessment_id   │
+│ name            │
+│ rubric          │
+│ weight_idea     │
+│ weight_ui       │
+│ weight_code     │
+└─────────────────┘
+         │
+         │ 1:N
+         │
+┌─────────────────┐
+│ assessment_runs │
+│  (评分执行记录)  │
+│                 │
+│ id (PK)         │
+│ run_id          │
+│ student_id (FK) │
+│ assessment_id(FK)│
+│ overall_score   │
+│ idea_score      │
+│ ui_score        │
+│ code_score      │
+└─────────────────┘
+         │
+         │ 1:N
+         │
+┌─────────────────┐
+│   submissions   │
+│   (提交记录)     │
+│                 │
+│ id (PK)         │
+│ submission_id   │
+│ student_id (FK) │
+│ assessment_run_id(FK)│
+│ file_path       │
+│ idea_text       │
+│ code_snippets   │
+└─────────────────┘
+```
+
+## 关系说明
+
+### 1. 学生中心关系
+- **students** ←→ **student_progress** (1:1)
+  - 一个学生对应一个全局进度记录
+  - 外键: student_id
+
+- **students** ←→ **student_progress_nodes** (1:N)
+  - 一个学生可以有多个节点进度记录
+  - 外键: student_id
+
+### 2. 诊断系统关系
+- **students** ←→ **diagnostics** (1:N)
+  - 一个学生可以有多次诊断记录
+  - 外键: student_id
+
+- ~~**diagnostics** ←→ **diagnostic_items** (1:N)~~ (已移除)
+  - ~~一个诊断记录包含多个题目~~
+  - ~~外键: diagnostic_id~~
+
+### 3. 评估系统关系
+- **assessments** ←→ **assessment_runs** (1:N)
+  - 一个评估规则可以执行多次
+  - 外键: assessment_id
+
+- **students** ←→ **assessment_runs** (1:N)
+  - 一个学生可以有多次评估执行
+  - 外键: student_id
+
+- **assessment_runs** ←→ **submissions** (1:N)
+  - 一个评估执行可以包含多个提交
+  - 外键: assessment_run_id
+
+## 数据流向
+
+```
+学生注册 → students
+    ↓
+入学诊断 → diagnostics
+    ↓
+初始化学习路径 → student_progress → student_progress_nodes
+    ↓
+学习过程中提交作品 → submissions
+    ↓
+触发评估 → assessment_runs (引用 assessments)
+    ↓
+更新学习进度 → student_progress_nodes
+```
+
+## 关键约束
+
+### 外键约束
+- `student_progress.student_id` → `students.student_id` (CASCADE)
+- `student_progress_nodes.student_id` → `students.student_id` (CASCADE)
+- `diagnostics.student_id` → `students.student_id` (CASCADE)
+- ~~`diagnostic_items.diagnostic_id` → `diagnostics.diagnostic_id` (CASCADE)~~ (已移除)
+- `assessment_runs.student_id` → `students.student_id` (CASCADE)
+- `assessment_runs.assessment_id` → `assessments.assessment_id` (RESTRICT)
+- `submissions.student_id` → `students.student_id` (CASCADE)
+- `submissions.assessment_run_id` → `assessment_runs.run_id` (SET NULL)
+
+### 唯一约束
+- `students.email` (唯一)
+- `diagnostics.diagnostic_id` (唯一)
+- `assessments.assessment_id` (唯一)
+- `assessment_runs.run_id` (唯一)
+- `submissions.submission_id` (唯一)
+- `student_progress_nodes(student_id, node_id)` (唯一)
+
+### 索引优化
+- 主键自动索引
+- 外键自动索引
+- 常用查询字段索引
+- 复合索引优化多字段查询
