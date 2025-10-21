@@ -6,6 +6,7 @@ from datetime import datetime
 import uuid
 
 from ..services.db_service import AssessmentDBService
+from ..services.assessment_rule_service import get_assessment_rule_service
 
 from ..models.assessment import (
     Assessment, AssessmentStatus, Deliverables, ScoreBreakdown
@@ -35,6 +36,7 @@ class AssessmentService:
             self.score_aggregator = ScoreAggregator()
             self.learning_path_service = LearningPathService()
             self.db_service = AssessmentDBService()
+            self.rule_service = get_assessment_rule_service()
             
             self._initialized = True
             
@@ -62,13 +64,18 @@ class AssessmentService:
             # 解析提交物
             parsed_deliverables = self._parse_deliverables(deliverables)
             
+            # 获取评分规则
+            rule = self.rule_service.get_default_rule()
+            if not rule:
+                raise AssessmentServiceError("无法获取默认评分规则")
+            
             # 创建评估执行记录（AssessmentRun是具体的评估执行记录）
             assessment_run_data = {
                 'run_id': assessment_id,  # 使用相同的ID
                 'student_id': student_id,
-                'assessment_id': 'default_assessment',  # 使用默认的评分规则
-                'node_id': 'file_upload',  # 默认节点ID
-                'channel': 'B',  # 默认通道
+                'assessment_id': rule['rule_id'],  # 使用配置文件中的评分规则ID
+                'node_id': rule.get('node_id', 'file_upload'),
+                'channel': rule.get('channel', 'B'),
                 'status': 'queued',
                 'created_at': datetime.now()
             }

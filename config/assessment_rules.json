@@ -1,0 +1,96 @@
+{
+  "version": "1.0",
+  "description": "评分规则配置文件",
+  "rules": {
+    "default_assessment": {
+      "name": "默认评分规则",
+      "description": "通用的项目评估规则",
+      "assessment_type": "project",
+      "node_id": "file_upload",
+      "channel": "B",
+      "rubric": {
+        "idea": {
+          "description": "创意想法评估",
+          "criteria": ["创新性", "可行性", "市场需求"],
+          "weight": 0.30
+        },
+        "ui": {
+          "description": "UI设计评估", 
+          "criteria": ["美观性", "易用性", "一致性"],
+          "weight": 0.30
+        },
+        "code": {
+          "description": "代码质量评估",
+          "criteria": ["功能完整性", "代码质量", "可维护性"],
+          "weight": 0.40
+        }
+      },
+      "thresholds": {
+        "pass": 60.0,
+        "excellent": 85.0
+      },
+      "max_retries": 3,
+      "is_active": true
+    },
+    "advanced_assessment": {
+      "name": "高级评分规则",
+      "description": "适用于高级项目的评估规则",
+      "assessment_type": "advanced_project",
+      "node_id": "advanced_development",
+      "channel": "C",
+      "rubric": {
+        "idea": {
+          "description": "创新想法评估",
+          "criteria": ["创新性", "技术可行性", "市场价值", "实现复杂度"],
+          "weight": 0.25
+        },
+        "ui": {
+          "description": "用户体验评估",
+          "criteria": ["界面设计", "交互体验", "响应式设计", "可访问性"],
+          "weight": 0.25
+        },
+        "code": {
+          "description": "代码质量评估",
+          "criteria": ["架构设计", "代码质量", "性能优化", "可维护性", "测试覆盖"],
+          "weight": 0.50
+        }
+      },
+      "thresholds": {
+        "pass": 70.0,
+        "excellent": 90.0
+      },
+      "max_retries": 2,
+      "is_active": true
+    },
+    "beginner_assessment": {
+      "name": "初学者评分规则",
+      "description": "适用于初学者的简化评估规则",
+      "assessment_type": "beginner_project",
+      "node_id": "basic_development",
+      "channel": "A",
+      "rubric": {
+        "idea": {
+          "description": "基础想法评估",
+          "criteria": ["清晰度", "可行性"],
+          "weight": 0.40
+        },
+        "ui": {
+          "description": "基础界面评估",
+          "criteria": ["布局合理", "颜色搭配"],
+          "weight": 0.30
+        },
+        "code": {
+          "description": "基础代码评估",
+          "criteria": ["功能实现", "代码规范"],
+          "weight": 0.30
+        }
+      },
+      "thresholds": {
+        "pass": 50.0,
+        "excellent": 80.0
+      },
+      "max_retries": 5,
+      "is_active": true
+    }
+  }
+}

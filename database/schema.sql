@@ -93,39 +93,14 @@ CREATE TABLE `diagnostics` (
 
 -- 5. 诊断题目明细表 (已移除 - 未使用)
 
--- 6. 评分规则表
-CREATE TABLE `assessments` (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自增ID',
-    `assessment_id` VARCHAR(100) NOT NULL COMMENT '评分规则ID',
-    `name` VARCHAR(200) NOT NULL COMMENT '评分规则名称',
-    `description` TEXT DEFAULT NULL COMMENT '评分规则描述',
-    `assessment_type` VARCHAR(50) NOT NULL COMMENT '评分类型',
-    `node_id` VARCHAR(100) DEFAULT NULL COMMENT '关联节点ID',
-    `channel` ENUM('A', 'B', 'C') DEFAULT NULL COMMENT '适用通道',
-    `rubric` JSON NOT NULL COMMENT '评分细则',
-    `weight_idea` DECIMAL(3,2) NOT NULL DEFAULT 0.30 COMMENT 'Idea权重',
-    `weight_ui` DECIMAL(3,2) NOT NULL DEFAULT 0.30 COMMENT 'UI权重',
-    `weight_code` DECIMAL(3,2) NOT NULL DEFAULT 0.40 COMMENT 'Code权重',
-    `pass_threshold` DECIMAL(5,2) NOT NULL DEFAULT 60.00 COMMENT '通过阈值',
-    `excellent_threshold` DECIMAL(5,2) NOT NULL DEFAULT 85.00 COMMENT '优秀阈值',
-    `max_retries` INT NOT NULL DEFAULT 3 COMMENT '最大重试次数',
-    `is_active` TINYINT(1) NOT NULL DEFAULT 1 COMMENT '是否启用',
-    `version` VARCHAR(20) NOT NULL DEFAULT '1.0' COMMENT '版本号',
-    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (`id`),
-    UNIQUE KEY `uk_assessment_id` (`assessment_id`),
-    KEY `idx_node_channel` (`node_id`, `channel`),
-    KEY `idx_type` (`assessment_type`),
-    KEY `idx_active` (`is_active`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评分规则表';
+-- 6. 评分规则表 (已移除 - 改为JSON配置文件)
 
 -- 7. 评分执行记录表
 CREATE TABLE `assessment_runs` (
     `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自增ID',
     `run_id` VARCHAR(100) NOT NULL COMMENT '评分执行ID',
     `student_id` VARCHAR(50) NOT NULL COMMENT '学生ID',
-    `assessment_id` VARCHAR(100) NOT NULL COMMENT '评分规则ID',
+    `assessment_id` VARCHAR(100) NOT NULL COMMENT '评分规则ID（引用配置文件中的规则）',
     `node_id` VARCHAR(100) NOT NULL COMMENT '节点ID',
     `channel` ENUM('A', 'B', 'C') NOT NULL COMMENT '使用通道',
     `status` ENUM('queued', 'in_progress', 'completed', 'failed') NOT NULL DEFAULT 'queued' COMMENT '执行状态',
@@ -150,8 +125,7 @@ CREATE TABLE `assessment_runs` (
     KEY `idx_node_id` (`node_id`),
     KEY `idx_status` (`status`),
     KEY `idx_created_at` (`created_at`),
-    CONSTRAINT `fk_assessment_runs_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE,
-    CONSTRAINT `fk_assessment_runs_assessment` FOREIGN KEY (`assessment_id`) REFERENCES `assessments` (`assessment_id`) ON DELETE RESTRICT
+    CONSTRAINT `fk_assessment_runs_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='评分执行记录表';
 
 -- 8. 提交记录表

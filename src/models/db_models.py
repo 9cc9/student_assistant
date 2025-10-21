@@ -126,36 +126,6 @@ class Diagnostic(Base):
         return f"<Diagnostic(diagnostic_id='{self.diagnostic_id}', student_id='{self.student_id}', score={self.overall_score})>"
 
 
-class Assessment(Base):
-    """评分规则表"""
-    __tablename__ = 'assessments'
-    
-    id = Column(BigInteger, primary_key=True, autoincrement=True, comment='自增ID')
-    assessment_id = Column(String(100), nullable=False, unique=True, comment='评分规则ID')
-    name = Column(String(200), nullable=False, comment='评分规则名称')
-    description = Column(Text, comment='评分规则描述')
-    assessment_type = Column(String(50), nullable=False, comment='评分类型')
-    node_id = Column(String(100), comment='关联节点ID')
-    channel = Column(Enum('A', 'B', 'C'), comment='适用通道')
-    rubric = Column(JSON, nullable=False, comment='评分细则')
-    weight_idea = Column(Decimal(3, 2), nullable=False, default=0.30, comment='Idea权重')
-    weight_ui = Column(Decimal(3, 2), nullable=False, default=0.30, comment='UI权重')
-    weight_code = Column(Decimal(3, 2), nullable=False, default=0.40, comment='Code权重')
-    pass_threshold = Column(Decimal(5, 2), nullable=False, default=60.00, comment='通过阈值')
-    excellent_threshold = Column(Decimal(5, 2), nullable=False, default=85.00, comment='优秀阈值')
-    max_retries = Column(Integer, nullable=False, default=3, comment='最大重试次数')
-    is_active = Column(Boolean, nullable=False, default=True, comment='是否启用')
-    version = Column(String(20), nullable=False, default='1.0', comment='版本号')
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, comment='创建时间')
-    updated_at = Column(DateTime, nullable=False, default=datetime.utcnow, onupdate=datetime.utcnow, comment='更新时间')
-    
-    # 关系
-    runs = relationship("AssessmentRun", back_populates="assessment", cascade="all, delete-orphan")
-    
-    def __repr__(self):
-        return f"<Assessment(assessment_id='{self.assessment_id}', name='{self.name}', type='{self.assessment_type}')>"
-
-
 class AssessmentRun(Base):
     """评分执行记录表"""
     __tablename__ = 'assessment_runs'
@@ -164,8 +134,7 @@ class AssessmentRun(Base):
     run_id = Column(String(100), nullable=False, unique=True, comment='评分执行ID')
     student_id = Column(String(50), ForeignKey('students.student_id', ondelete='CASCADE'), 
                        nullable=False, comment='学生ID')
-    assessment_id = Column(String(100), ForeignKey('assessments.assessment_id', ondelete='RESTRICT'), 
-                          nullable=False, comment='评分规则ID')
+    assessment_id = Column(String(100), nullable=False, comment='评分规则ID（引用配置文件中的规则）')
     node_id = Column(String(100), nullable=False, comment='节点ID')
     channel = Column(Enum('A', 'B', 'C'), nullable=False, comment='使用通道')
     status = Column(Enum('queued', 'in_progress', 'completed', 'failed'), 
@@ -187,7 +156,6 @@ class AssessmentRun(Base):
     
     # 关系
     student = relationship("Student", back_populates="assessment_runs")
-    assessment = relationship("Assessment", back_populates="runs")
     submissions = relationship("Submission", back_populates="assessment_run")
     
     def __repr__(self):
