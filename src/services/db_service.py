@@ -274,16 +274,39 @@ class DiagnosticDBService:
 class AssessmentDBService:
     """评分数据访问服务"""
     
-    def create_assessment(self, assessment_data: Dict[str, Any]) -> Assessment:
-        """创建评分规则"""
+    def create_assessment(self, assessment_data: Dict[str, Any]) -> Dict[str, Any]:
+        """创建评分规则（返回字典避免会话问题）"""
         with get_db_session_context() as session:
             try:
                 assessment = Assessment(**assessment_data)
                 session.add(assessment)
                 session.commit()
                 session.refresh(assessment)
+                
+                # 在会话关闭前提取数据
+                result = {
+                    'id': assessment.id,
+                    'assessment_id': assessment.assessment_id,
+                    'name': assessment.name,
+                    'description': assessment.description,
+                    'assessment_type': assessment.assessment_type,
+                    'node_id': assessment.node_id,
+                    'channel': assessment.channel if assessment.channel else None,
+                    'rubric': assessment.rubric,
+                    'weight_idea': float(assessment.weight_idea) if assessment.weight_idea else 0.0,
+                    'weight_ui': float(assessment.weight_ui) if assessment.weight_ui else 0.0,
+                    'weight_code': float(assessment.weight_code) if assessment.weight_code else 0.0,
+                    'pass_threshold': float(assessment.pass_threshold) if assessment.pass_threshold else 0.0,
+                    'excellent_threshold': float(assessment.excellent_threshold) if assessment.excellent_threshold else 0.0,
+                    'max_retries': assessment.max_retries,
+                    'is_active': assessment.is_active,
+                    'version': assessment.version,
+                    'created_at': assessment.created_at,
+                    'updated_at': assessment.updated_at
+                }
+                
                 logger.info(f"📊 评分规则创建成功: {assessment.assessment_id}")
-                return assessment
+                return result
             except IntegrityError as e:
                 session.rollback()
                 logger.error(f"📊 评分规则创建失败，数据冲突: {str(e)}")
@@ -293,10 +316,34 @@ class AssessmentDBService:
                 logger.error(f"📊 评分规则创建失败: {str(e)}")
                 raise
     
-    def get_assessment(self, assessment_id: str) -> Optional[Assessment]:
-        """获取评分规则"""
+    def get_assessment(self, assessment_id: str) -> Optional[Dict[str, Any]]:
+        """获取评分规则（返回字典避免会话问题）"""
         with get_db_session_context() as session:
-            return session.query(Assessment).filter(Assessment.assessment_id == assessment_id).first()
+            assessment = session.query(Assessment).filter(Assessment.assessment_id == assessment_id).first()
+            if not assessment:
+                return None
+                
+            # 在会话关闭前提取数据
+            return {
+                'id': assessment.id,
+                'assessment_id': assessment.assessment_id,
+                'name': assessment.name,
+                'description': assessment.description,
+                'assessment_type': assessment.assessment_type,
+                'node_id': assessment.node_id,
+                'channel': assessment.channel if assessment.channel else None,
+                'rubric': assessment.rubric,
+                'weight_idea': float(assessment.weight_idea) if assessment.weight_idea else 0.0,
+                'weight_ui': float(assessment.weight_ui) if assessment.weight_ui else 0.0,
+                'weight_code': float(assessment.weight_code) if assessment.weight_code else 0.0,
+                'pass_threshold': float(assessment.pass_threshold) if assessment.pass_threshold else 0.0,
+                'excellent_threshold': float(assessment.excellent_threshold) if assessment.excellent_threshold else 0.0,
+                'max_retries': assessment.max_retries,
+                'is_active': assessment.is_active,
+                'version': assessment.version,
+                'created_at': assessment.created_at,
+                'updated_at': assessment.updated_at
+            }
     
     def create_assessment_run(self, run_data: Dict[str, Any]) -> AssessmentRun:
         """创建评分执行记录"""

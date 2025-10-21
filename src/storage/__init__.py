@@ -1,5 +1,4 @@
-"""存储模块"""
-from .file_storage import FileStorage, get_storage
+"""存储模块 - 已移除文件存储，完全使用数据库存储"""
 
-__all__ = ["FileStorage", "get_storage"]
+# 文件存储已移除，所有数据现在存储在数据库中
 

@@ -8,7 +8,6 @@ import uuid
 import json
 from pathlib import Path
 
-from ..storage.file_storage import get_storage
 from ..models.learning_path import (
     LearningPath, PathNode, Channel, NodeStatus, PathDecision,
     StudentPathProgress, PathRecommendation, CheckpointRule
@@ -24,7 +23,6 @@ class LearningPathService:
     
     def __init__(self):
         if not hasattr(self, '_initialized'):
-            self.storage = get_storage()
             self._initialized = True
             
         # 加载学习路径配置（从JSON文件）

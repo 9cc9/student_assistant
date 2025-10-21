@@ -5,7 +5,6 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime
 import uuid
 
-from ..storage.file_storage import get_storage
 from ..services.db_service import AssessmentDBService
 
 from ..models.assessment import (
@@ -39,11 +38,7 @@ class AssessmentService:
             
             self._initialized = True
             
-        # 确保 storage 属性始终存在（处理单例重启问题）
-        if not hasattr(self, 'storage'):
-            self.storage = get_storage()
-            logger.info(f"📋 AssessmentService 存储已初始化，使用数据库存储")
-        # 移除内存存储，完全使用数据库
+        # 完全使用数据库存储，移除文件存储依赖
         
         # 确保学习路径服务可用
         if not hasattr(self, 'learning_path_service'):
@@ -67,17 +62,19 @@ class AssessmentService:
             # 解析提交物
             parsed_deliverables = self._parse_deliverables(deliverables)
             
-            # 创建评估记录
-            assessment = Assessment(
-                assessment_id=assessment_id,
-                student_id=student_id,
-                deliverables=parsed_deliverables,
-                status=AssessmentStatus.QUEUED,
-                created_at=datetime.now()
-            )
+            # 创建评估执行记录（AssessmentRun是具体的评估执行记录）
+            assessment_run_data = {
+                'run_id': assessment_id,  # 使用相同的ID
+                'student_id': student_id,
+                'assessment_id': 'default_assessment',  # 使用默认的评分规则
+                'node_id': 'file_upload',  # 默认节点ID
+                'channel': 'B',  # 默认通道
+                'status': 'queued',
+                'created_at': datetime.now()
+            }
             
-            # 存储评估记录到数据库
-            self.storage.save_assessment(assessment_id, assessment)
+            # 存储到数据库
+            self.db_service.create_assessment_run(assessment_run_data)
             logger.info(f"📋 ✅ 评估记录已存储到数据库: {assessment_id}")
             
             # 同步执行评估（避免异步任务问题）
@@ -179,11 +176,7 @@ class AssessmentService:
             
         except Exception as e:
             logger.error(f"从数据库获取评估记录失败: {str(e)}")
-            # 降级到文件存储
-            assessment = self.storage.get_assessment(assessment_id)
-            if not assessment:
-                logger.error(f"📋 ❌ 评估记录不存在: {assessment_id}")
-                raise AssessmentServiceError(f"评估记录不存在: {assessment_id}")
+            raise AssessmentServiceError(f"获取评估记录失败: {str(e)}")
         
         # 处理字典和对象两种情况
         if isinstance(assessment, dict):
@@ -385,23 +378,7 @@ class AssessmentService:
             
         except Exception as e:
             logger.error(f"从数据库获取评估记录失败: {str(e)}")
-            # 降级到文件存储
-            try:
-                assessments = self.storage.list_assessments()
-                processed_assessments = []
-                for assessment_id, assessment in assessments.items():
-                    if isinstance(assessment, dict):
-                        assessment_student_id = assessment.get('student_id')
-                    else:
-                        assessment_student_id = assessment.student_id
-                    
-                    if not student_id or assessment_student_id == student_id:
-                        processed_assessments.append(assessment_id)
-                
-                return [self.get_assessment_status(aid) for aid in processed_assessments]
-            except Exception as fallback_error:
-                logger.error(f"降级到文件存储也失败: {str(fallback_error)}")
-                return []
+            return []
     
     async def _execute_assessment(self, assessment_id: str):
         """
