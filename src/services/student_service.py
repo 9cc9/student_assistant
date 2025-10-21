@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any
 
 from ..models.student_auth import StudentAccount, DiagnosticRecord
 from ..services.db_service import StudentDBService, DiagnosticDBService, AssessmentDBService
-from ..models.db_models import Diagnostic, DiagnosticItem
+from ..models.db_models import Diagnostic
 
 logger = logging.getLogger(__name__)
 
@@ -66,25 +66,6 @@ class StudentService:
             }
             
             diagnostic = self.diagnostic_db.create_diagnostic(diagnostic_data)
-            
-            # 保存诊断题目明细（如果存在）
-            diagnostic_items = getattr(record, 'diagnostic_items', [])
-            for item in diagnostic_items:
-                item_data = {
-                    'diagnostic_id': record.test_id,
-                    'item_id': item.get('item_id', ''),
-                    'item_type': item.get('item_type', ''),
-                    'question': item.get('question', ''),
-                    'answer': item.get('answer', ''),
-                    'correct_answer': item.get('correct_answer', ''),
-                    'score': item.get('score'),
-                    'max_score': item.get('max_score', 100.0),
-                    'dimension': item.get('dimension', ''),
-                    'difficulty_level': item.get('difficulty_level'),
-                    'time_spent_seconds': item.get('time_spent_seconds'),
-                    'created_at': record.submitted_at
-                }
-                self.diagnostic_db.create_diagnostic_item(item_data)
             
             logger.info(f"✅ 保存诊断记录: {record.student_id} - {record.test_id}")
             return True

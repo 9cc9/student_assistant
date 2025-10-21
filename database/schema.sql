@@ -91,27 +91,7 @@ CREATE TABLE `diagnostics` (
     CONSTRAINT `fk_diagnostics_student` FOREIGN KEY (`student_id`) REFERENCES `students` (`student_id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='诊断记录表';
 
--- 5. 诊断题目明细表
-CREATE TABLE `diagnostic_items` (
-    `id` BIGINT UNSIGNED NOT NULL AUTO_INCREMENT COMMENT '自增ID',
-    `diagnostic_id` VARCHAR(100) NOT NULL COMMENT '诊断ID',
-    `item_id` VARCHAR(100) NOT NULL COMMENT '题目ID',
-    `item_type` VARCHAR(50) NOT NULL COMMENT '题目类型',
-    `question` TEXT NOT NULL COMMENT '题目内容',
-    `answer` TEXT DEFAULT NULL COMMENT '学生答案',
-    `correct_answer` TEXT DEFAULT NULL COMMENT '正确答案',
-    `score` DECIMAL(5,2) DEFAULT NULL COMMENT '得分',
-    `max_score` DECIMAL(5,2) NOT NULL DEFAULT 100.00 COMMENT '满分',
-    `dimension` VARCHAR(100) DEFAULT NULL COMMENT '评价维度',
-    `difficulty_level` INT DEFAULT NULL COMMENT '难度等级(1-10)',
-    `time_spent_seconds` INT DEFAULT NULL COMMENT '答题用时(秒)',
-    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    PRIMARY KEY (`id`),
-    KEY `idx_diagnostic_id` (`diagnostic_id`),
-    KEY `idx_item_type` (`item_type`),
-    KEY `idx_dimension` (`dimension`),
-    CONSTRAINT `fk_diagnostic_items_diagnostic` FOREIGN KEY (`diagnostic_id`) REFERENCES `diagnostics` (`diagnostic_id`) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='诊断题目明细表';
+-- 5. 诊断题目明细表 (已移除 - 未使用)
 
 -- 6. 评分规则表
 CREATE TABLE `assessments` (

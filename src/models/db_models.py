@@ -121,36 +121,9 @@ class Diagnostic(Base):
     
     # 关系
     student = relationship("Student", back_populates="diagnostics")
-    items = relationship("DiagnosticItem", back_populates="diagnostic", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Diagnostic(diagnostic_id='{self.diagnostic_id}', student_id='{self.student_id}', score={self.overall_score})>"
-
-
-class DiagnosticItem(Base):
-    """诊断题目明细表"""
-    __tablename__ = 'diagnostic_items'
-    
-    id = Column(BigInteger, primary_key=True, autoincrement=True, comment='自增ID')
-    diagnostic_id = Column(String(100), ForeignKey('diagnostics.diagnostic_id', ondelete='CASCADE'), 
-                          nullable=False, comment='诊断ID')
-    item_id = Column(String(100), nullable=False, comment='题目ID')
-    item_type = Column(String(50), nullable=False, comment='题目类型')
-    question = Column(Text, nullable=False, comment='题目内容')
-    answer = Column(Text, comment='学生答案')
-    correct_answer = Column(Text, comment='正确答案')
-    score = Column(Decimal(5, 2), comment='得分')
-    max_score = Column(Decimal(5, 2), nullable=False, default=100.00, comment='满分')
-    dimension = Column(String(100), comment='评价维度')
-    difficulty_level = Column(Integer, comment='难度等级(1-10)')
-    time_spent_seconds = Column(Integer, comment='答题用时(秒)')
-    created_at = Column(DateTime, nullable=False, default=datetime.utcnow, comment='创建时间')
-    
-    # 关系
-    diagnostic = relationship("Diagnostic", back_populates="items")
-    
-    def __repr__(self):
-        return f"<DiagnosticItem(item_id='{self.item_id}', diagnostic_id='{self.diagnostic_id}', score={self.score})>"
 
 
 class Assessment(Base):

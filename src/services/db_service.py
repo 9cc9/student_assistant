@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from ..config.database import get_db_session_context
 from ..models.db_models import (
-    Student, StudentProgress, StudentProgressNode, Diagnostic, DiagnosticItem,
+    Student, StudentProgress, StudentProgressNode, Diagnostic,
     Assessment, AssessmentRun, Submission
 )
 from ..models.student import LearningLevel, LearningStyle
@@ -269,27 +269,6 @@ class DiagnosticDBService:
             
             return records
     
-    def create_diagnostic_item(self, item_data: Dict[str, Any]) -> DiagnosticItem:
-        """创建诊断题目记录"""
-        with get_db_session_context() as session:
-            try:
-                item = DiagnosticItem(**item_data)
-                session.add(item)
-                session.commit()
-                session.refresh(item)
-                logger.info(f"📊 诊断题目记录创建成功: {item.item_id}")
-                return item
-            except Exception as e:
-                session.rollback()
-                logger.error(f"📊 诊断题目记录创建失败: {str(e)}")
-                raise
-    
-    def get_diagnostic_items(self, diagnostic_id: str) -> List[DiagnosticItem]:
-        """获取诊断题目列表"""
-        with get_db_session_context() as session:
-            return session.query(DiagnosticItem).filter(
-                DiagnosticItem.diagnostic_id == diagnostic_id
-            ).order_by(DiagnosticItem.created_at).all()
 
 
 class AssessmentDBService:
