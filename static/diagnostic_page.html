@@ -446,9 +446,10 @@
             methods: {
                 async loadQuestions() {
                     try {
-                        const response = await fetch('/config/diagnostic_questions.json')
+                        // 使用API端点代替本地JSON文件
+                        const response = await fetch('/api/diagnostic/test')
                         if (!response.ok) {
-                            throw new Error('无法加载题目文件，请检查文件是否存在')
+                            throw new Error('无法加载测试题目，请检查后端服务是否正常')
                         }
                         const data = await response.json()
                         this.testInfo = data.test_info
@@ -456,12 +457,12 @@
                         // 转换题目数据格式以适配现有代码
                         this.sections = this.transformQuestionsData(data.sections)
                         this.questionsLoaded = true
-                        console.log('✅ 成功从JSON加载测试题目')
+                        console.log('✅ 成功从API加载测试题目')
                     } catch (error) {
                         console.error('❌ 加载题目失败:', error)
                         this.loadingError = error.message
                         this.questionsLoaded = false
-                        alert('⚠️ 题目文件加载失败！\n\n请确保 diagnostic_questions.json 文件存在且格式正确。\n\n错误信息: ' + error.message)
+                        alert('⚠️ 题目加载失败！\n\n请确保后端服务正常运行。\n\n错误信息: ' + error.message)
                     }
                 },
                 

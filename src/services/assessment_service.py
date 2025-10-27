@@ -536,12 +536,15 @@ class AssessmentService:
             }
             
             # 确定节点状态
-            if assessment_run.overall_score and float(assessment_run.overall_score) >= 60:  # 通过门槛
+            overall_score_val = float(assessment_run.overall_score) if assessment_run.overall_score else 0
+            if overall_score_val >= 60:  # 通过门槛
                 node_status = NodeStatus.COMPLETED
+                logger.info(f"✅ 节点通过: {current_node_id} (得分: {overall_score_val}分 >= 60分)")
             else:
                 node_status = NodeStatus.FAILED
+                logger.info(f"❌ 节点未通过: {current_node_id} (得分: {overall_score_val}分 < 60分) - 需要降级重修")
             
-            logger.info(f"📚🤖 开始更新学习路径: {student_id} -> {current_node_id} -> {node_status.value}")
+            logger.info(f"📚🤖 开始更新学习路径: {student_id} -> {current_node_id} -> {node_status.value} (得分: {overall_score_val}分)")
             
             # 更新学生进度
             await self.learning_path_service.update_student_progress(
@@ -551,13 +554,15 @@ class AssessmentService:
                 assessment_result=assessment_result
             )
             
-            # 如果节点完成，生成路径推荐
-            if node_status == NodeStatus.COMPLETED:
+            # 如果节点完成或失败，都生成路径推荐
+            # COMPLETED: 决定升级/保持/进入下一节点
+            # FAILED: 决定降级重修或保持难度重修
+            if node_status in [NodeStatus.COMPLETED, NodeStatus.FAILED]:
                 recommendation = await self.learning_path_service.recommend_next_step(
                     student_id=student_id,
                     assessment_result=assessment_result
                 )
-                logger.info(f"📚🤖 路径推荐已生成: {student_id} -> {recommendation.recommended_channel.value}通道 -> {recommendation.next_node_id}")
+                logger.info(f"📚🤖 路径推荐已生成: {student_id} -> {recommendation.recommended_channel.value}通道 -> {recommendation.next_node_id}, 决策: {recommendation.decision.value}")
             
             logger.info(f"📚🤖 ✅ 学习路径更新成功: {assessment_id}")
             

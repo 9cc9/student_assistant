@@ -103,58 +103,24 @@ createApp({
     methods: {
         // ================ 诊断测试方法 ================
         
-        // 预加载诊断测试题目（从JSON文件）
+        // 预加载诊断测试题目（从API）
         async loadDiagnosticQuestions() {
             try {
-                const response = await fetch('/config/diagnostic_questions.json')
+                const response = await fetch('/api/diagnostic/test')
                 if (!response.ok) {
                     throw new Error('Failed to load diagnostic questions')
                 }
                 const data = await response.json()
                 
-                // 转换为API格式
-                this.diagnosticTest = {
-                    test_info: data.test_info,
-                    sections: this.transformDiagnosticSections(data.sections)
-                }
+                // 直接使用API返回的数据
+                this.diagnosticTest = data
                 this.diagnosticQuestionsLoaded = true
-                console.log('✅ 成功从JSON加载诊断测试题目')
+                // console.log('✅ 成功从API加载诊断测试题目')
             } catch (error) {
                 console.error('❌ 加载诊断题目失败:', error)
                 this.diagnosticQuestionsLoaded = false
-                // 不阻塞系统，用户点击开始测试时再尝试从API加载
+                // 不阻塞系统，用户点击开始测试时再尝试重新加载
             }
-        },
-        
-        transformDiagnosticSections(sectionsData) {
-            return sectionsData.map(section => {
-                // 处理工具熟悉度模块
-                if (section.id === 'tools' && section.survey) {
-                    return {
-                        id: section.id,
-                        title: section.title,
-                        description: section.description,
-                        time_limit: section.time_limit,
-                        questions: section.survey.map((surveyItem, index) => ({
-                            id: `tools_${surveyItem.category}`,
-                            question: `请评估您对以下${surveyItem.category}工具的熟悉程度`,
-                            type: 'rating',
-                            category: {
-                                name: surveyItem.category,
-                                tools: surveyItem.tools
-                            }
-                        }))
-                    }
-                }
-                // 其他模块直接使用questions字段
-                return {
-                    id: section.id,
-                    title: section.title,
-                    description: section.description || '',
-                    time_limit: section.time_limit,
-                    questions: section.questions || []
-                }
-            })
         },
         
         async startDiagnostic() {
@@ -163,13 +129,13 @@ createApp({
                 return
             }
             
-            // 如果题目已从JSON加载，直接使用
+            // 如果题目已加载，直接使用
             if (this.diagnosticQuestionsLoaded && this.diagnosticTest) {
                 this.diagnosticStarted = true
                 this.testStartTime = new Date()
                 this.currentSection = 0
                 this.sectionStartTime = new Date()
-                console.log('使用预加载的诊断测试题目')
+                // console.log('使用预加载的诊断测试题目')
                 return
             }
             
@@ -179,16 +145,17 @@ createApp({
                 const response = await fetch('/api/diagnostic/test')
                 if (response.ok) {
                     this.diagnosticTest = await response.json()
-                this.diagnosticStarted = true
+                    this.diagnosticQuestionsLoaded = true
+                    this.diagnosticStarted = true
                     this.testStartTime = new Date()
                     this.currentSection = 0
                     this.sectionStartTime = new Date()
-                    console.log('从API加载诊断测试题目成功')
+                    // console.log('从API加载诊断测试题目成功')
                 } else {
                     throw new Error('获取测试题目失败')
                 }
             } catch (error) {
-                alert('启动诊断测试失败: ' + error.message + '\n请确保题目文件已正确配置')
+                alert('启动诊断测试失败: ' + error.message + '\n请确保后端服务正常')
                 this.diagnosticStarted = false
             } finally {
                 this.loading = false
@@ -242,7 +209,7 @@ createApp({
                     this.diagnosticCompleted = true
                     this.diagnosticStarted = false
                     
-                    console.log('诊断评估完成:', result)
+                    // console.log('诊断评估完成:', result)
                     
                     // 自动创建学习路径
                     await this.createLearningPathFromDiagnostic(result)
@@ -281,7 +248,7 @@ createApp({
                 
                 if (response.ok) {
                     const pathData = await response.json()
-                    console.log('学习路径创建成功:', pathData)
+                    // console.log('学习路径创建成功:', pathData)
                     // 刷新学习路径显示
                     await this.loadStudentProgress()
                 } else {
@@ -329,13 +296,23 @@ createApp({
                         current_node_id: data.current_status.current_node_id,
                         current_channel: data.current_status.current_channel
                     }
-                    console.log('✅ 学习进度已加载:', this.studentProgress)
-                    console.log('📊 进度详情:', {
-                        completed_nodes: this.studentProgress.completed_nodes,
-                        completed_count: this.studentProgress.completed_nodes?.length || 0,
-                        completion_rate: this.studentProgress.completion_rate,
-                        completion_rate_percentage: (this.studentProgress.completion_rate * 100).toFixed(1) + '%'
-                    })
+                    // console.log('✅ 学习进度已加载:', this.studentProgress)
+                    // console.log('📊 进度详情:', {
+                    //     completed_nodes: this.studentProgress.completed_nodes,
+                    //     completed_count: this.studentProgress.completed_nodes?.length || 0,
+                    //     completion_rate: this.studentProgress.completion_rate,
+                    //     completion_rate_percentage: (this.studentProgress.completion_rate * 100).toFixed(1) + '%'
+                    // })
+                    
+                    // 打印调试信息（后端返回的节点状态）- 保留此调试信息
+                    if (data._debug) {
+                        console.log('🔍 后端返回的调试信息:', data._debug)
+                        console.log('📋 所有节点的状态:', data._debug.all_node_statuses)
+                        data._debug.all_node_statuses?.forEach(nodeInfo => {
+                            console.log(`  节点 ${nodeInfo.node_id}: status=${nodeInfo.status}, channel=${nodeInfo.used_channel}, score=${nodeInfo.score}, attempts=${nodeInfo.attempt_count}`)
+                        })
+                    }
+                    
                     this.currentTask = data.current_task
                     await this.loadLearningPath()
                 }
@@ -350,7 +327,7 @@ createApp({
                 if (response.ok) {
                     const data = await response.json()
                     this.learningNodes = data.nodes || []
-                    console.log('学习路径节点加载成功:', this.learningNodes.length, '个节点')
+                    // console.log('学习路径节点加载成功:', this.learningNodes.length, '个节点')
                 } else {
                     console.error('加载学习路径失败:', response.status, response.statusText)
                 }
@@ -414,13 +391,13 @@ createApp({
                 
                 if (response.ok) {
                     const result = await response.json()
-                    console.log('当前任务通道切换成功:', result)
+                    // console.log('当前任务通道切换成功:', result)
                     
                     // 更新当前任务信息
                     if (result.current_task) {
                         // 直接赋值，Vue 3会自动处理响应式更新
                         this.currentTask = result.current_task
-                        console.log('✅ 当前任务已更新:', this.currentTask)
+                        // console.log('✅ 当前任务已更新:', this.currentTask)
                     }
                     
                     // 重新加载学习进度以保持数据同步，但保持当前任务不变
@@ -429,7 +406,7 @@ createApp({
                     // 确保当前任务保持更新后的状态
                     if (result.current_task) {
                         this.currentTask = result.current_task
-                        console.log('✅ 当前任务状态已确认:', this.currentTask)
+                        // console.log('✅ 当前任务状态已确认:', this.currentTask)
                     }
                     
                 } else {
@@ -504,9 +481,11 @@ createApp({
                     body: JSON.stringify({
                         student_id: studentId,
                         node_id: this.studentProgress.current_node_id,
-                        status: 'completed',
+                        // 根据分数决定状态：>=60为完成，<60为失败
+                        status: (assessmentResult.overall_score >= 60) ? 'completed' : 'failed',
                         assessment_result: {
                             overall_score: assessmentResult.overall_score || 0,
+                            breakdown: assessmentResult.breakdown || {},
                             detailed_scores: assessmentResult.detailed_scores || {},
                             feedback: assessmentResult.feedback || ''
                         }
@@ -515,7 +494,7 @@ createApp({
                 
                 if (response.ok) {
                     const result = await response.json()
-                    console.log('学习进度更新成功:', result)
+                    // console.log('学习进度更新成功:', result)
                     
                     // 重新加载学习进度以获取最新的节点信息
                     await this.loadStudentProgress()
@@ -528,11 +507,16 @@ createApp({
                         }
                         
                         // 应用路径推荐（但不自动切换，让用户选择）
-                        console.log('收到路径推荐:', result.path_recommendation)
+                        // console.log('收到路径推荐:', result.path_recommendation)
                     }
                     
-                    // 显示成功提示
-                    this.showSuccessMessage('恭喜！您已完成当前学习节点，已解锁下一个节点！')
+                    // 根据状态显示不同的提示
+                    const passed = assessmentResult.overall_score >= 60
+                    if (passed) {
+                        this.showSuccessMessage('恭喜！您已完成当前学习节点，已解锁下一个节点！')
+                    } else {
+                        this.showErrorMessage(`当前节点未通过（得分: ${assessmentResult.overall_score}分），需要进行降级重修。`)
+                    }
                 } else {
                     const error = await response.json()
                     console.error('学习进度更新失败:', error)
@@ -547,13 +531,13 @@ createApp({
         // 应用路径推荐
         async applyPathRecommendation(recommendation) {
             try {
-                console.log('收到路径推荐:', recommendation)
+                // console.log('收到路径推荐:', recommendation)
                 
                 const { recommended_channel, next_node_id, decision_type, reasoning } = recommendation
                 
                 // 如果推荐了不同的通道，自动切换
                 if (recommended_channel && this.studentProgress && this.studentProgress.current_channel !== recommended_channel) {
-                    console.log(`系统推荐切换到${recommended_channel}通道`)
+                    // console.log(`系统推荐切换到${recommended_channel}通道`)
                     
                     // 调用通道切换API
                     const studentId = this.currentStudent?.student_id || this.diagnosticForm.studentId
@@ -571,7 +555,7 @@ createApp({
                     
                     if (response.ok) {
                         const result = await response.json()
-                        console.log('通道切换成功:', result)
+                        // console.log('通道切换成功:', result)
                         
                         // 重新加载学习进度
                         await this.loadStudentProgress()
@@ -633,9 +617,9 @@ createApp({
         getDecisionTypeText(decisionType) {
             const typeMap = {
                 'keep': '保持当前通道',
-                'upgrade': '升级到更高难度',
+                'upgrade': '升级并继续下一节点',
                 'downgrade': '降级到基础难度',
-                'downgrade_with_scaffold': '降级并提供辅导'
+                'downgrade_with_scaffold': '降级重修当前节点'
             }
             return typeMap[decisionType] || decisionType
         },
@@ -817,17 +801,17 @@ createApp({
         
         viewHistoryDetail(record) {
             // 查看历史记录详情
-            console.log('🔍 查看历史记录详情:', record)
-            console.log('📊 记录包含的数据字段:', Object.keys(record))
-            console.log('📈 分数数据:', {
-                final_score: record.final_score,
-                overall_score: record.overall_score,
-                breakdown: record.breakdown,
-                score_breakdown: record.score_breakdown
-            })
-            console.log('🔍 诊断数据:', record.diagnosis)
-            console.log('📚 资源数据:', record.resources)
-            console.log('📋 准出规则:', record.exit_rules)
+            // console.log('🔍 查看历史记录详情:', record)
+            // console.log('📊 记录包含的数据字段:', Object.keys(record))
+            // console.log('📈 分数数据:', {
+            //     final_score: record.final_score,
+            //     overall_score: record.overall_score,
+            //     breakdown: record.breakdown,
+            //     score_breakdown: record.score_breakdown
+            // })
+            // console.log('🔍 诊断数据:', record.diagnosis)
+            // console.log('📚 资源数据:', record.resources)
+            // console.log('📋 准出规则:', record.exit_rules)
             
             this.assessmentResult = record
             this.activeTab = 'history'  // 确保切换到学习记录标签页
@@ -902,17 +886,19 @@ createApp({
         getDecisionClass(decision) {
             const classMap = {
                 'upgrade': 'bg-green-100 text-green-800 px-2 py-1 rounded text-sm',
-                'keep': 'bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm', 
-                'downgrade_with_scaffold': 'bg-yellow-100 text-yellow-800 px-2 py-1 rounded text-sm'
+                'keep': 'bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm',
+                'downgrade': 'bg-orange-100 text-orange-800 px-2 py-1 rounded text-sm',
+                'downgrade_with_scaffold': 'bg-red-100 text-red-800 px-2 py-1 rounded text-sm'
             }
             return classMap[decision] || 'bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm'
         },
         
         getDecisionText(decision) {
             const textMap = {
-                'upgrade': '升级通道',
-                'keep': '保持当前',
-                'downgrade_with_scaffold': '降级辅导'
+                'upgrade': '升级并继续',
+                'keep': '保持并继续',
+                'downgrade': '降级重修',
+                'downgrade_with_scaffold': '降级重修'
             }
             return textMap[decision] || decision
         },
@@ -1034,14 +1020,14 @@ createApp({
         // 判断是否为当前节点
         isCurrentNode(node) {
             const isCurrent = this.studentProgress && this.studentProgress.current_node_id === node.id
-            console.log(`🔍 isCurrentNode(${node.id}):`, isCurrent, 'current_node_id:', this.studentProgress?.current_node_id)
+            // console.log(`🔍 isCurrentNode(${node.id}):`, isCurrent, 'current_node_id:', this.studentProgress?.current_node_id)
             return isCurrent
         },
         
         // 判断是否为已完成的节点
         isCompletedNode(node) {
             const isCompleted = this.studentProgress && this.studentProgress.completed_nodes && this.studentProgress.completed_nodes.includes(node.id)
-            console.log(`🔍 isCompletedNode(${node.id}):`, isCompleted, 'completed_nodes:', this.studentProgress?.completed_nodes)
+            // console.log(`🔍 isCompletedNode(${node.id}):`, isCompleted, 'completed_nodes:', this.studentProgress?.completed_nodes)
             return isCompleted
         },
         
@@ -1056,13 +1042,13 @@ createApp({
         // 获取已完成的通道
         getCompletedChannel(node) {
             if (!this.studentProgress || !this.studentProgress.completed_nodes || !this.studentProgress.completed_nodes.includes(node.id)) {
-                console.log(`🔍 getCompletedChannel(${node.id}): null (node not completed)`)
+                // console.log(`🔍 getCompletedChannel(${node.id}): null (node not completed)`)
                 return null
             }
             
             // 从学生进度中获取该节点完成的通道信息
             const completedChannel = this.studentProgress.completed_channels?.[node.id] || 'B'
-            console.log(`🔍 getCompletedChannel(${node.id}):`, completedChannel, 'completed_channels:', this.studentProgress.completed_channels)
+            // console.log(`🔍 getCompletedChannel(${node.id}):`, completedChannel, 'completed_channels:', this.studentProgress.completed_channels)
             return completedChannel
         },
         
@@ -1101,7 +1087,7 @@ createApp({
                 
                 if (response.ok) {
                     const result = await response.json()
-                    console.log('通道切换成功:', result)
+                    // console.log('通道切换成功:', result)
                     
                     // 重新加载学习进度
                     await this.loadStudentProgress()
@@ -1358,7 +1344,7 @@ createApp({
                 if (diagnosticResponse.ok) {
                     const diagnosticData = await diagnosticResponse.json()
                     this.diagnosticHistory = diagnosticData.history || []
-                    console.log('诊断历史已加载:', diagnosticData.count, '条记录')
+                    // console.log('诊断历史已加载:', diagnosticData.count, '条记录')
                 }
                 this.diagnosticHistoryLoading = false
                 
@@ -1372,7 +1358,7 @@ createApp({
                 if (learningResponse.ok) {
                     const learningData = await learningResponse.json()
                     this.historyData = learningData.records || []
-                    console.log('学习历史已加载:', learningData.count, '条记录')
+                    // console.log('学习历史已加载:', learningData.count, '条记录')
                 }
                 
                 // 加载学习统计
@@ -1385,13 +1371,13 @@ createApp({
                 if (statisticsResponse.ok) {
                     const statisticsData = await statisticsResponse.json()
                     this.learningStatistics = statisticsData
-                    console.log('✅ 学习统计已加载:', statisticsData)
-                    console.log('📊 统计数据详情:', {
-                        total_diagnostics: statisticsData.total_diagnostics,
-                        total_assessments: statisticsData.total_assessments,
-                        average_score: statisticsData.average_score,
-                        completion_rate: statisticsData.completion_rate
-                    })
+                    // console.log('✅ 学习统计已加载:', statisticsData)
+                    // console.log('📊 统计数据详情:', {
+                    //     total_diagnostics: statisticsData.total_diagnostics,
+                    //     total_assessments: statisticsData.total_assessments,
+                    //     average_score: statisticsData.average_score,
+                    //     completion_rate: statisticsData.completion_rate
+                    // })
                 } else {
                     console.error('❌ 获取学习统计失败:', statisticsResponse.status, statisticsResponse.statusText)
                     const errorText = await statisticsResponse.text()

@@ -423,7 +423,12 @@ class LearningPathService:
         recommended_channel = self._determine_recommended_channel(current_channel, decision)
         
         # 确定下一个节点
-        next_node_id = self._get_next_node(current_node_id, progress.completed_nodes)
+        # DOWNGRADE决策：保持当前节点（重修），不进入下一节点
+        # UPGRADE和KEEP决策：进入下一节点
+        if decision == PathDecision.DOWNGRADE:
+            next_node_id = current_node_id  # 保持当前节点，降低难度重修
+        else:
+            next_node_id = self._get_next_node(current_node_id, progress.completed_nodes)
         
         # 生成推荐理由
         reasoning, trigger_factors = self._generate_recommendation_reasoning(
@@ -548,11 +553,12 @@ class LearningPathService:
         
         # 生成推荐理由
         if decision == PathDecision.UPGRADE:
-            reasoning = f"基于优秀的评估表现（评分: {trigger_factors.get('overall_score', '良好')}），建议升级到更具挑战性的通道，以充分发挥学习潜能。"
+            reasoning = f"基于优秀的评估表现（评分: {trigger_factors.get('overall_score', '良好')}分），已通过当前节点。建议升级到更高难度通道学习下一个节点，以充分发挥学习潜能。"
         elif decision == PathDecision.DOWNGRADE:
-            reasoning = f"考虑到当前掌握度（{trigger_factors.get('mastery_level', 0.5):.1%}）和重试次数（{trigger_factors['retry_count']}次），建议降级通道并提供额外支持，确保学习效果。"
+            current_node_name = self._get_node_name_from_id(progress.current_node_id)
+            reasoning = f"当前掌握度不足（评分: {trigger_factors.get('overall_score', 0)}分，已重试{trigger_factors['retry_count']}次），未通过{current_node_name}节点。建议降级难度并在当前节点重修，同时提供额外辅导资源以确保学习效果。"
         else:
-            reasoning = "当前学习进展良好，建议保持现有通道继续学习，稳步推进课程进度。"
+            reasoning = f"已通过当前节点（评分: {trigger_factors.get('overall_score', 0)}分）。建议保持当前难度通道继续学习下一个节点，稳步推进课程进度。"
         
         return reasoning, trigger_factors
     
@@ -649,6 +655,12 @@ class LearningPathService:
         progress.last_activity_at = datetime.now()
         progress.updated_at = datetime.now()
         
+        # 如果节点失败（DOWNGRADE情况），需要将其从已完成列表中移除
+        if status == NodeStatus.FAILED:
+            if node_id in progress.completed_nodes:
+                progress.completed_nodes.remove(node_id)
+                logger.info(f"📚 节点失败，从已完成列表中移除: {node_id}")
+        
         # 如果节点完成，更新完成列表
         if status == NodeStatus.COMPLETED:
             if node_id not in progress.completed_nodes:
@@ -664,11 +676,23 @@ class LearningPathService:
                 
                 logger.info(f"📚 节点完成，累计学习时长: {node_id} -> +{node_hours}小时，总计: {progress.total_study_hours}小时")
             
-            # 解锁下一个节点
-            next_node_id = self._get_next_node(node_id, progress.completed_nodes)
-            if next_node_id and next_node_id != node_id:
-                progress.node_statuses[next_node_id] = NodeStatus.AVAILABLE
-                progress.current_node_id = next_node_id
+            # 根据评估结果决定是否进入下一节点
+            # 如果当前节点通过且未要求降级，则进入下一节点
+            # 如果要求降级（downgrade），则保持当前节点但降低通道难度
+            should_proceed_to_next = True
+            
+            if assessment_result and assessment_result.get("overall_score", 0) < 60:
+                # 如果分数低于60分，可能是降级决策，需要检查
+                # 这个逻辑会在 recommend_next_step 中处理，这里先判定不进入下一节点
+                logger.info(f"📚 节点完成但分数低于60，等待路径推荐来决定是否进入下一节点")
+                should_proceed_to_next = False
+            
+            if should_proceed_to_next:
+                # 解锁下一个节点
+                next_node_id = self._get_next_node(node_id, progress.completed_nodes)
+                if next_node_id and next_node_id != node_id:
+                    progress.node_statuses[next_node_id] = NodeStatus.AVAILABLE
+                    progress.current_node_id = next_node_id
         
         # 更新掌握度分数和挫败感
         if assessment_result:
@@ -696,7 +720,8 @@ class LearningPathService:
             student_id=student_id,
             node_id=node_id,
             status=status,
-            used_channel=progress.current_channel if status == NodeStatus.COMPLETED else None,
+            # 无论完成还是失败，都需要记录使用的通道
+            used_channel=progress.current_channel if status in [NodeStatus.COMPLETED, NodeStatus.FAILED] else None,
             score=(assessment_result.get("overall_score") if assessment_result else None),
             attempt_count=progress.retry_counts.get(node_id, 0),
             started_at=None,
@@ -773,6 +798,14 @@ class LearningPathService:
                 "outcomes": path.learning_outcomes
             })
         return paths
+    
+    def _get_node_name_from_id(self, node_id: str) -> str:
+        """根据节点ID获取节点名称"""
+        for path in self.learning_paths.values():
+            for node in path.nodes:
+                if node.id == node_id:
+                    return node.name
+        return node_id  # 如果找不到，返回节点ID本身
     
     def _load_student_progresses(self):
         """兼容函数（不再使用文件加载）"""

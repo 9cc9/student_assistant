@@ -140,6 +140,20 @@ async def get_student_progress(student_id: str) -> JSONResponse:
                 current_node = node
                 break
         
+        # 获取数据库中所有节点的详细状态信息（用于调试）
+        from ..services.progress_repository import ProgressRepository
+        db_data = ProgressRepository.get_student_progress(student_id)
+        node_statuses_from_db = []
+        if db_data and db_data["nodes"]:
+            for node in db_data["nodes"]:
+                node_statuses_from_db.append({
+                    "node_id": node["node_id"],
+                    "status": node["status"],
+                    "used_channel": node["used_channel"],
+                    "score": float(node["score"]) if node["score"] else None,
+                    "attempt_count": node["attempt_count"]
+                })
+        
         response_data = {
             "student_id": student_id,
             "current_status": {
@@ -154,6 +168,13 @@ async def get_student_progress(student_id: str) -> JSONResponse:
                 "total_nodes": len(learning_path.nodes),
                 "completion_rate": len(progress.completed_nodes) / len(learning_path.nodes),
                 "total_study_hours": progress.total_study_hours
+            },
+            "_debug": {
+                "completed_nodes": progress.completed_nodes,
+                "completed_channels": progress.completed_channels,
+                "current_node_id": progress.current_node_id,
+                "current_channel": progress.current_channel.value,
+                "all_node_statuses": node_statuses_from_db
             },
             "performance_data": {
                 "mastery_scores": progress.mastery_scores,
@@ -315,11 +336,12 @@ async def update_node_progress(
         # 更新进度
         await path_service.update_student_progress(student_id, node_id, status, assessment_result)
         
-        # 如果节点完成且有评估结果，生成新的路径推荐
+        # 如果节点完成或失败且有评估结果，生成新的路径推荐
         recommendation = None
-        if status == NodeStatus.COMPLETED and assessment_result:
+        if status in [NodeStatus.COMPLETED, NodeStatus.FAILED] and assessment_result:
             try:
                 recommendation = await path_service.recommend_next_step(student_id, assessment_result)
+                logger.info(f"📚 路径推荐已生成: 决策={recommendation.decision.value}, 推荐通道={recommendation.recommended_channel.value}, 下一节点={recommendation.next_node_id}")
             except Exception as e:
                 logger.warning(f"📚 ⚠️ 生成路径推荐失败，但进度更新成功: {str(e)}")
         
