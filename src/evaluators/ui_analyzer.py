@@ -52,6 +52,10 @@ class UIAnalyzer(BaseEvaluator):
             # 分析设计图片
             image_analysis = await self._analyze_design_images(design_images)
             
+            # 获取任务信息
+            task_requirements = data.get("task_requirements", [])
+            task_deliverables = data.get("task_deliverables", [])
+            
             # 构建详细提示词
             prompt = f"""
 请对以下UI设计进行评估，必须严格按照JSON格式返回结果：
@@ -61,18 +65,36 @@ class UIAnalyzer(BaseEvaluator):
 色彩方案: {", ".join(color_palette) if color_palette else "未指定"}
 图片分析: {image_analysis}
 
+"""
+            
+            # 🔥 添加任务要求
+            if task_requirements:
+                requirements_text = "\n".join([f"{i+1}. {req}" for i, req in enumerate(task_requirements)])
+                deliverables_text = "\n".join([f"{i+1}. {req}" for i, req in enumerate(task_deliverables)])
+                prompt += f"""
+【任务要求】
+{requirements_text}
+
+【提交要求】
+{deliverables_text}
+
+"""
+            
+            prompt += """
 请从以下维度评估（每个维度0-100分）：
 
 1. 易用性 (usability): 界面操作流畅度、用户友好性
 2. 可访问性 (accessibility): 不同用户群体的使用便利性
 3. 布局设计 (layout): 信息架构、视觉层次、界面布局
 
+🔥 重要：请结合【任务要求】判断UI设计是否合理。如果任务要求特定功能（如性能监控界面、负载均衡配置界面等），请评估UI设计是否支持这些功能需求。
+
 请严格按照以下JSON格式返回（不要添加任何解释）：
 {{
     "usability": 数字评分,
     "accessibility": 数字评分,
     "layout": 数字评分,
-    "feedback": "详细反馈文字",
+    "feedback": "详细反馈文字（必须结合任务要求评价）",
     "suggestions": ["建议1", "建议2"],
     "resources": ["推荐资源1", "推荐资源2"]
 }}

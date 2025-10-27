@@ -634,6 +634,101 @@ class AssessmentService:
         if assessment_run.node_id:
             return assessment_run.node_id
         return self._default_node_inference()
+    
+    def _get_task_info(self, node_id: str, channel: str) -> Dict[str, Any]:
+        """获取任务信息"""
+        try:
+            # 从学习路径服务获取任务信息
+            learning_path = self.learning_path_service.get_learning_path()
+            if not learning_path:
+                logger.warning(f"无法获取学习路径，返回空任务信息")
+                return {
+                    "requirements": [],
+                    "deliverables": [],
+                    "description": ""
+                }
+            
+            # 查找节点
+            current_node = None
+            for node in learning_path.nodes:
+                if node.id == node_id:
+                    current_node = node
+                    break
+            
+            if not current_node:
+                logger.warning(f"未找到节点: {node_id}")
+                return {
+                    "requirements": [],
+                    "deliverables": [],
+                    "description": ""
+                }
+            
+            # 获取通道任务信息
+            from ..models.learning_path import Channel as ChannelEnum
+            channel_enum = ChannelEnum[channel]
+            channel_task = current_node.channel_tasks.get(channel_enum, {})
+            
+            task_info = {
+                "description": channel_task.get("task", ""),
+                "requirements": channel_task.get("requirements", []),
+                "deliverables": channel_task.get("deliverables", [])
+            }
+            
+            logger.info(f"✅ 成功获取任务信息: {node_id} -> {channel}")
+            logger.info(f"    任务要求: {len(task_info['requirements'])} 项")
+            logger.info(f"    提交要求: {len(task_info['deliverables'])} 项")
+            return task_info
+            
+        except Exception as e:
+            logger.error(f"获取任务信息失败: {str(e)}")
+            return {
+                "requirements": [],
+                "deliverables": [],
+                "description": ""
+            }
+    
+    def _check_deliverables_completeness(self, evaluation_data: Dict[str, Any], 
+                                         task_requirements: List[str], 
+                                         task_deliverables: List[str]) -> Dict[str, Any]:
+        """检查提交材料的完整性"""
+        missing_deliverables = []
+        has_code = bool(evaluation_data.get("code_repo") or evaluation_data.get("code_snippets"))
+        has_ui = bool(evaluation_data.get("ui_images"))
+        has_idea = bool(evaluation_data.get("idea_text"))
+        
+        # 检查常见的提交要求
+        for deliverable in task_deliverables:
+            deliverable_lower = deliverable.lower()
+            
+            # 代码相关
+            if any(keyword in deliverable_lower for keyword in ["代码", "程序", "实现", "源码", "repository", "repo"]):
+                if not has_code:
+                    missing_deliverables.append(deliverable)
+            
+            # UI相关
+            elif any(keyword in deliverable_lower for keyword in ["ui", "界面", "设计", "原型", "图片"]):
+                if not has_ui:
+                    missing_deliverables.append(deliverable)
+            
+            # 创意相关
+            elif any(keyword in deliverable_lower for keyword in ["创意", "想法", "项目描述", "idea"]):
+                if not has_idea:
+                    missing_deliverables.append(deliverable)
+        
+        completeness_info = {
+            "missing_deliverables": missing_deliverables,
+            "has_code": has_code,
+            "has_ui": has_ui,
+            "has_idea": has_idea,
+            "is_complete": len(missing_deliverables) == 0
+        }
+        
+        if missing_deliverables:
+            logger.warning(f"⚠️ 提交材料不完整，缺失: {missing_deliverables}")
+        else:
+            logger.info(f"✅ 提交材料完整")
+        
+        return completeness_info
 
     def _prepare_evaluation_data_from_db(self, assessment_run) -> Dict[str, Any]:
         """从数据库记录准备评估数据"""
@@ -642,6 +737,14 @@ class AssessmentService:
         # 从关联的提交记录获取详细信息
         submissions = self.db_service.get_submissions_by_assessment_run(assessment_run['run_id'])
         logger.info(f"📋 📊 找到 {len(submissions)} 条提交记录")
+        
+        # 🔥 获取任务信息
+        node_id = assessment_run.get('node_id')
+        channel = assessment_run.get('channel')
+        task_info = self._get_task_info(node_id, channel)
+        logger.info(f"📋 📝 任务信息: {node_id} -> {channel}通道")
+        logger.info(f"    任务要求: {task_info.get('requirements', [])}")
+        logger.info(f"    提交要求: {task_info.get('deliverables', [])}")
         
         # 构建评估数据
         evaluation_data = {
@@ -665,7 +768,14 @@ class AssessmentService:
             "framework": "未指定",
             "lines_of_code": 0,
             "test_coverage": 0.0,
-            "code_snippets": []
+            "code_snippets": [],
+            
+            # 🔥 新增：任务信息
+            "task_requirements": task_info.get('requirements', []),
+            "task_deliverables": task_info.get('deliverables', []),
+            "task_description": task_info.get('description', ''),
+            "node_id": node_id,
+            "channel": channel
         }
         
         # 从提交记录中提取数据
@@ -708,6 +818,23 @@ class AssessmentService:
                 logger.info(f"    代码片段文件: {list(evaluation_data['code_snippets'].keys())}")
         else:
             logger.info(f"    代码片段文件: None")
+        
+        # 🔥 检查提交材料完整性
+        completeness_info = self._check_deliverables_completeness(
+            evaluation_data, 
+            task_info.get('requirements', []),
+            task_info.get('deliverables', [])
+        )
+        
+        # 将完整性信息添加到评估数据中
+        evaluation_data["completeness_info"] = completeness_info
+        
+        # 如果有缺失的材料，记录警告
+        if not completeness_info["is_complete"]:
+            logger.warning(f"⚠️⚠️⚠️ 提交材料不完整！缺失项: {completeness_info['missing_deliverables']}")
+            logger.warning(f"    存在代码: {completeness_info['has_code']}")
+            logger.warning(f"    存在UI: {completeness_info['has_ui']}")
+            logger.warning(f"    存在创意: {completeness_info['has_idea']}")
         
         return evaluation_data
 

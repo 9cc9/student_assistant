@@ -49,6 +49,10 @@ class IdeaEvaluator(BaseEvaluator):
             if not idea_text:
                 raise EvaluatorError("缺少创意描述文本")
             
+            # 获取任务信息
+            task_requirements = data.get("task_requirements", [])
+            task_deliverables = data.get("task_deliverables", [])
+            
             # 格式化提示词
             prompt = f"""
 请对以下项目创意进行评估，必须严格按照JSON格式返回结果，不要添加任何额外文字：
@@ -58,18 +62,35 @@ class IdeaEvaluator(BaseEvaluator):
 目标用户: {target_users or "未指定"}
 核心功能: {", ".join(core_features) if core_features else "未指定"}
 
+"""
+            
+            # 🔥 添加任务要求
+            if task_requirements:
+                requirements_text = "\n".join([f"{i+1}. {req}" for i, req in enumerate(task_requirements)])
+                deliverables_text = "\n".join([f"{i+1}. {req}" for i, req in enumerate(task_deliverables)])
+                prompt += f"""
+【任务要求】
+{requirements_text}
+
+【提交要求】
+{deliverables_text}
+
+"""          
+            prompt += """
 请从以下维度进行评估（每个维度0-100分）：
 
 1. 创新性 (innovation): 技术新颖度、解决方案独特性
 2. 可行性 (feasibility): 技术难度、开发周期、资源需求
 3. 学习价值 (learning_value): 技能提升程度、知识拓展范围
 
+🔥 重要：请结合【任务要求】判断创意是否合理。如果任务要求特定功能（如GPU加速配置、并发处理等），请评估创意是否覆盖了这些要求。
+
 请严格按照以下JSON格式返回（不要添加任何解释）：
 {{
     "innovation": 数字评分,
     "feasibility": 数字评分,
     "learning_value": 数字评分,
-    "feedback": "详细反馈文字",
+    "feedback": "详细反馈文字（必须结合任务要求评价）",
     "suggestions": ["建议1", "建议2"],
     "resources": ["推荐资源1", "推荐资源2"]
 }}

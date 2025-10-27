@@ -1016,22 +1016,32 @@
 
                             <!-- 项目创意 -->
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">项目创意描述</label>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-lightbulb mr-2 text-yellow-500"></i>项目创意与任务说明
+                                </label>
+                                <p class="text-xs text-gray-500 mb-2">
+                                    详细描述您的项目创意，包括：目标用户、核心功能、技术方案等
+                                </p>
                                 <textarea 
                                     v-model="uploadForm.ideaText" 
-                                    rows="6" 
+                                    rows="8" 
                                     required
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    placeholder="请详细描述您的项目创意、目标用户、核心功能等..."></textarea>
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm"
+                                    placeholder="请按照以下格式描述您的项目：&#10;&#10;【项目名称】&#10;项目简要描述&#10;&#10;【目标用户】&#10;谁会使用这个项目&#10;&#10;【核心功能】&#10;项目的主要功能点&#10;&#10;【技术方案】&#10;使用的技术栈和实现思路&#10;&#10;【项目亮点】&#10;项目的创新点和优势"></textarea>
                             </div>
 
                             <!-- 文件上传区域 -->
                             <div>
-                                <label class="block text-sm font-semibold text-gray-700 mb-2">上传项目文件</label>
+                                <label class="block text-sm font-semibold text-gray-700 mb-2">
+                                    <i class="fas fa-upload mr-2 text-blue-500"></i>上传项目文件
+                                </label>
+                                <p class="text-xs text-gray-500 mb-3">
+                                    请上传以下提交物：代码文件、UI设计图、项目文档等
+                                </p>
                                 <div 
                                     @dragover.prevent
                                     @drop.prevent="handleFileDrop"
-                                    class="upload-area border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer"
+                                    class="upload-area border-2 border-dashed border-gray-300 rounded-lg p-12 text-center cursor-pointer hover:border-blue-400 transition"
                                     :class="{'border-blue-500 bg-blue-50': isDragging}"
                                     @dragenter="isDragging = true"
                                     @dragleave="isDragging = false">
@@ -1039,7 +1049,11 @@
                                     <div v-if="selectedFiles.length === 0">
                                         <i class="fas fa-cloud-upload-alt text-6xl text-gray-400 mb-4"></i>
                                         <p class="text-xl text-gray-600 mb-2">拖拽文件到此处或点击选择</p>
-                                        <p class="text-gray-500">支持 .zip, .tar.gz 压缩包或单个代码文件</p>
+                                        <p class="text-gray-500 mb-3">支持 .zip, .tar.gz 压缩包或单个代码文件</p>
+                                        <p class="text-xs text-gray-400 mb-4">
+                                            <i class="fas fa-info-circle mr-1"></i>
+                                            建议上传压缩包或完整的项目文件夹
+                                        </p>
                                         <input 
                                             ref="fileInput"
                                             @change="handleFileSelect"
@@ -1050,8 +1064,8 @@
                                         <button 
                                             type="button"
                                             @click="$refs.fileInput.click()"
-                                            class="mt-4 bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition">
-                                            选择文件
+                                            class="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition shadow-md">
+                                            <i class="fas fa-folder-open mr-2"></i>选择文件
                                         </button>
                                     </div>
                                     
@@ -1075,16 +1089,28 @@
                             </div>
 
                             <!-- 提交按钮 -->
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                <p class="text-sm text-gray-600 mb-2">
+                                    <i class="fas fa-info-circle text-blue-500 mr-1"></i>
+                                    <strong>提交后AI将对您的项目进行评估，评估内容包括：</strong>
+                                </p>
+                                <ul class="text-xs text-gray-600 space-y-1">
+                                    <li><i class="fas fa-check text-green-500 mr-2"></i>创意想法评估（创新性、可行性、学习价值）</li>
+                                    <li><i class="fas fa-check text-green-500 mr-2"></i>UI设计分析（规范性、可用性、信息架构）</li>
+                                    <li><i class="fas fa-check text-green-500 mr-2"></i>代码质量评审（正确性、可读性、架构、性能）</li>
+                                </ul>
+                            </div>
+                            
                             <button 
                                 type="submit"
                                 :disabled="loading || selectedFiles.length === 0"
                                 class="w-full bg-gradient-to-r from-blue-500 to-purple-600 text-white py-4 px-8 rounded-lg font-semibold text-lg
-                                       hover:from-blue-600 hover:to-purple-700 transition duration-300 disabled:opacity-50">
+                                       hover:from-blue-600 hover:to-purple-700 transition duration-300 disabled:opacity-50 shadow-lg">
                                 <span v-if="loading">
-                                    <i class="fas fa-spinner fa-spin mr-2"></i>评估中...
+                                    <i class="fas fa-spinner fa-spin mr-2"></i>AI正在评估中，请稍候...
                                 </span>
                                 <span v-else>
-                                    <i class="fas fa-rocket mr-2"></i>提交作业评估
+                                    <i class="fas fa-rocket mr-2"></i>提交作业进行评估
                                 </span>
                             </button>
                         </div>

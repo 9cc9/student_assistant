@@ -354,8 +354,13 @@ createApp({
             // 切换到作业提交页面
             this.activeTab = 'upload'
             
-            // 预填充任务相关信息
-            this.uploadForm.ideaText = `我正在完成【${this.currentTask.node_name}】的${this.currentTask.channel}通道任务：\n\n${this.currentTask.task_description}\n\n任务要求：\n${this.currentTask.requirements.map(req => `• ${req}`).join('\n')}\n\n提交要求：\n${this.currentTask.deliverables.map(del => `• ${del}`).join('\n')}`
+            // 预填充任务相关信息 - 优化后的模板
+            const taskTitle = `${this.currentTask.node_name} - ${this.currentTask.channel}通道`
+            const taskDesc = this.currentTask.task_description
+            const requirements = this.currentTask.requirements.map(req => `• ${req}`).join('\n')
+            const deliverables = this.currentTask.deliverables.map(del => `• ${del}`).join('\n')
+            
+            this.uploadForm.ideaText = `【项目名称】\n我正在完成${taskTitle}的项目开发。\n\n【任务描述】\n${taskDesc}\n\n【任务要求】\n${requirements}\n\n【提交物要求】\n${deliverables}`
             
             // 滚动到页面顶部
             window.scrollTo({ top: 0, behavior: 'smooth' })
